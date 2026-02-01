@@ -1,9 +1,11 @@
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.bodegas import repository
 from app.bodegas.schemas import ActualizarBodegaDTO, CrearBodegaDTO
 from app.comun.excepciones import conflicto, no_encontrado
+from app.envios.base.models import EnvioTerrestre
 
 
 def crear_bodega(db: Session, dto: CrearBodegaDTO):
@@ -34,4 +36,15 @@ def actualizar_bodega(db: Session, bodega_id: int, dto: ActualizarBodegaDTO):
 
 def eliminar_bodega(db: Session, bodega_id: int) -> None:
     obj = obtener_bodega(db, bodega_id)
-    repository.eliminar(db, obj)
+
+    total_envios = (
+        db.scalar(select(func.count()).select_from(EnvioTerrestre).where(EnvioTerrestre.id_bodega == bodega_id)) or 0
+    )
+    if int(total_envios) > 0:
+        raise conflicto("No se puede eliminar la bodega: tiene envíos asociados")
+
+    try:
+        repository.eliminar(db, obj)
+    except IntegrityError as exc:
+        db.rollback()
+        raise conflicto("No se puede eliminar la bodega: tiene envíos asociados") from exc

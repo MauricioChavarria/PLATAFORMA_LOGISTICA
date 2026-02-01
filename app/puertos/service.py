@@ -1,7 +1,9 @@
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.comun.excepciones import conflicto, no_encontrado
+from app.envios.base.models import EnvioMaritimo
 from app.puertos import repository
 from app.puertos.schemas import ActualizarPuertoDTO, CrearPuertoDTO
 
@@ -34,4 +36,15 @@ def actualizar_puerto(db: Session, puerto_id: int, dto: ActualizarPuertoDTO):
 
 def eliminar_puerto(db: Session, puerto_id: int) -> None:
     obj = obtener_puerto(db, puerto_id)
-    repository.eliminar(db, obj)
+
+    total_envios = (
+        db.scalar(select(func.count()).select_from(EnvioMaritimo).where(EnvioMaritimo.id_puerto == puerto_id)) or 0
+    )
+    if int(total_envios) > 0:
+        raise conflicto("No se puede eliminar el puerto: tiene envíos asociados")
+
+    try:
+        repository.eliminar(db, obj)
+    except IntegrityError as exc:
+        db.rollback()
+        raise conflicto("No se puede eliminar el puerto: tiene envíos asociados") from exc
