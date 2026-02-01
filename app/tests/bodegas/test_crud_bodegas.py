@@ -14,24 +14,20 @@ def test_crud_bodegas_soft_delete_filtros_paginacion(client: TestClient) -> None
     r = client.post(
         "/api/v1/bodegas",
         headers=headers,
-        json={"nombre": "Bodega Norte", "ubicacion": "Zona 1", "pais": "CO"},
+        json={"nombre": "Bodega Norte", "direccion": "Calle 123"},
     )
     assert r.status_code == 200
-    bodega_id = r.json()["id"]
+    bodega_id = r.json()["id_bodega"]
 
     r = client.get(f"/api/v1/bodegas/{bodega_id}", headers=headers)
     assert r.status_code == 200
-    assert r.json()["pais"] == "CO"
+    assert r.json()["direccion"] == "Calle 123"
 
     r = client.get("/api/v1/bodegas?page=1&page_size=10", headers=headers)
     assert r.status_code == 200
     assert r.json()["total"] == 1
 
     r = client.get("/api/v1/bodegas?q=Norte", headers=headers)
-    assert r.status_code == 200
-    assert r.json()["total"] == 1
-
-    r = client.get("/api/v1/bodegas?pais=CO", headers=headers)
     assert r.status_code == 200
     assert r.json()["total"] == 1
 

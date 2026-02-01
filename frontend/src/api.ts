@@ -10,89 +10,70 @@ export type PaginacionRespuesta<T> = {
   items: T[]
 }
 
-export type ClienteDTO = {
-  id: number
+export type TipoProductoDTO = {
+  id_tipo_producto: number
   nombre: string
-  email: string
-  documento: string
-  telefono?: string | null
-  creado_en: string
 }
 
-export type CrearClienteDTO = {
+export type CrearTipoProductoDTO = {
   nombre: string
-  email: string
-  documento: string
-  telefono?: string | null
 }
 
-export type ActualizarClienteDTO = {
+export type ActualizarTipoProductoDTO = {
   nombre?: string | null
-  email?: string | null
-  documento?: string | null
-  telefono?: string | null
-}
-
-export type ProductoDTO = {
-  id: number
-  nombre: string
-  descripcion?: string | null
-  creado_en: string
-}
-
-export type CrearProductoDTO = {
-  nombre: string
-  descripcion?: string | null
-}
-
-export type ActualizarProductoDTO = {
-  nombre?: string | null
-  descripcion?: string | null
 }
 
 export type BodegaDTO = {
-  id: number
+  id_bodega: number
   nombre: string
-  ubicacion: string
-  pais: string
-  creado_en: string
+  direccion?: string | null
 }
 
 export type CrearBodegaDTO = {
   nombre: string
-  ubicacion: string
-  pais: string
+  direccion?: string | null
 }
 
 export type ActualizarBodegaDTO = {
   nombre?: string | null
-  ubicacion?: string | null
-  pais?: string | null
+  direccion?: string | null
 }
 
 export type PuertoDTO = {
-  id: number
+  id_puerto: number
   nombre: string
-  pais: string
-  creado_en: string
+  ciudad?: string | null
+}
+
+export type ClienteDTO = {
+  id_cliente: number
+  nombre: string
+  email?: string | null
+  telefono?: string | null
+}
+
+export type CrearClienteDTO = {
+  nombre: string
+  email?: string | null
+  telefono?: string | null
 }
 
 export type CrearPuertoDTO = {
   nombre: string
-  pais: string
+  ciudad?: string | null
 }
 
 export type ActualizarPuertoDTO = {
   nombre?: string | null
-  pais?: string | null
+  ciudad?: string | null
 }
 
 export type TipoEnvio = 'TERRESTRE' | 'MARITIMO'
 
 export type EnvioDTO = {
-  id: number
-  cliente_id: number
-  producto_id: number
+  id_envio: number
+  id_cliente: number
+  id_tipo_producto: number
   cantidad: number
   fecha_registro: string
   fecha_entrega: string
@@ -101,48 +82,106 @@ export type EnvioDTO = {
   precio_final: string
   numero_guia: string
   tipo_envio: TipoEnvio
-  bodega_id?: number | null
+  id_bodega?: number | null
   placa_vehiculo?: string | null
-  puerto_id?: number | null
+  id_puerto?: number | null
   numero_flota?: string | null
-  creado_en: string
 }
 
 export type CrearEnvioDTO = {
-  cliente_id: number
-  producto_id: number
+  id_cliente: number
+  id_tipo_producto: number
   cantidad: number
   fecha_registro: string
   fecha_entrega: string
   precio_base: string | number
-  descuento: string | number
   numero_guia: string
   tipo_envio: TipoEnvio
-  bodega_id?: number
+  id_bodega?: number
   placa_vehiculo?: string
-  puerto_id?: number
+  id_puerto?: number
   numero_flota?: string
 }
 
 export type ActualizarEnvioDTO = Partial<CrearEnvioDTO>
 
-export type CotizacionTerrestreRequest = {
-  guia: string
-  cliente_id: number
-  placa_vehiculo: string
-  codigo_flota: string
-  cantidad: number
-}
-
-export type CotizacionMaritimaRequest = {
-  guia: string
-  cliente_id: number
-  puerto_origen_id: number
-  puerto_destino_id: number
-  cantidad: number
-}
-
 const API_BASE = '/api/v1'
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (typeof value === 'object' && value !== null) return value as Record<string, unknown>
+  return null
+}
+
+function safeStringify(value: unknown): string | null {
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return null
+  }
+}
+
+function toDisplayString(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value)
+  const json = safeStringify(value)
+  if (json) return json
+  if (typeof value === 'object') return '[unserializable]'
+  if (typeof value === 'function') return '[function]'
+  if (typeof value === 'symbol') return '[symbol]'
+  return ''
+}
+
+function formatFastApiValidationDetail(detail: unknown): string | null {
+  if (!Array.isArray(detail)) return null
+
+  const parts = detail
+    .map((entry) => {
+      const rec = asRecord(entry)
+      if (!rec) return String(entry)
+
+      const locRaw = rec.loc
+      let loc = ''
+      if (Array.isArray(locRaw)) {
+        loc = locRaw.map((p) => toDisplayString(p)).filter((s) => s.trim().length > 0).join('.')
+      } else if (locRaw !== null && locRaw !== undefined) {
+        loc = toDisplayString(locRaw)
+      }
+
+      const msgRaw = rec.msg ?? rec.message
+      let msg = ''
+      if (msgRaw !== null && msgRaw !== undefined) {
+        msg = toDisplayString(msgRaw)
+      } else {
+        msg = safeStringify(entry) ?? String(entry)
+      }
+
+      return loc ? `${loc}: ${msg}` : msg
+    })
+    .filter((s) => s.trim().length > 0)
+
+  return parts.length ? parts.join('\n') : null
+}
+
+function formatApiError(data: unknown, status: number): string {
+  if (typeof data === 'string') return data
+
+  const rec = asRecord(data)
+  if (!rec) return `Error HTTP ${status}`
+
+  if ('detail' in rec) {
+    const detail = rec.detail
+    if (typeof detail === 'string') return detail
+
+    // FastAPI / Pydantic validation error: detail = [{loc, msg, ...}, ...]
+    const validation = formatFastApiValidationDetail(detail)
+    if (validation) return validation
+
+    return safeStringify(detail) ?? String(detail)
+  }
+
+  return safeStringify(data) ?? `Error HTTP ${status}`
+}
 
 async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
@@ -166,12 +205,7 @@ async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Pro
   }
 
   if (!resp.ok) {
-    const message =
-      typeof data === 'object' && data && 'detail' in (data as any)
-        ? String((data as any).detail)
-        : `Error HTTP ${resp.status}`
-
-    throw new Error(message)
+    throw new Error(formatApiError(data, resp.status))
   }
 
   return data as T
@@ -198,73 +232,29 @@ export async function login(username: string, password: string): Promise<TokenRe
   })
 }
 
-export async function cotizarTerrestre(
-  token: string,
-  payload: CotizacionTerrestreRequest,
-): Promise<any> {
-  return requestJson<any>(`${API_BASE}/envios/terrestres/cotizar`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
-  })
-}
-
-export async function cotizarMaritimo(
-  token: string,
-  payload: CotizacionMaritimaRequest,
-): Promise<any> {
-  return requestJson<any>(`${API_BASE}/envios/maritimos/cotizar`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify(payload),
-  })
-}
-
-export async function listarClientes(
-  token: string,
-  params: { page?: number; page_size?: number; q?: string; email?: string; documento?: string } = {},
-): Promise<PaginacionRespuesta<ClienteDTO>> {
-  return requestJson<PaginacionRespuesta<ClienteDTO>>(
-    `${API_BASE}/clientes${toQuery(params)}`,
-    { method: 'GET', headers: authHeaders(token) },
-  )
-}
-
-export async function crearCliente(token: string, payload: CrearClienteDTO): Promise<ClienteDTO> {
-  return requestJson<ClienteDTO>(`${API_BASE}/clientes`, {
-    method: 'POST',
-    headers: authHeaders(token),
-    body: JSON.stringify(payload),
-  })
-}
-
-export async function eliminarCliente(token: string, clienteId: number): Promise<{ status: string }> {
-  return requestJson<{ status: string }>(`${API_BASE}/clientes/${clienteId}`, {
-    method: 'DELETE',
-    headers: authHeaders(token),
-  })
-}
-
-export async function listarProductos(
+export async function listarTiposProducto(
   token: string,
   params: { page?: number; page_size?: number; q?: string } = {},
-): Promise<PaginacionRespuesta<ProductoDTO>> {
-  return requestJson<PaginacionRespuesta<ProductoDTO>>(
-    `${API_BASE}/productos${toQuery(params)}`,
+): Promise<PaginacionRespuesta<TipoProductoDTO>> {
+  return requestJson<PaginacionRespuesta<TipoProductoDTO>>(
+    `${API_BASE}/tipos-producto${toQuery(params)}`,
     { method: 'GET', headers: authHeaders(token) },
   )
 }
 
-export async function crearProducto(token: string, payload: CrearProductoDTO): Promise<ProductoDTO> {
-  return requestJson<ProductoDTO>(`${API_BASE}/productos`, {
+export async function crearTipoProducto(token: string, payload: CrearTipoProductoDTO): Promise<TipoProductoDTO> {
+  return requestJson<TipoProductoDTO>(`${API_BASE}/tipos-producto`, {
     method: 'POST',
     headers: authHeaders(token),
     body: JSON.stringify(payload),
   })
 }
 
-export async function eliminarProducto(token: string, productoId: number): Promise<{ status: string }> {
-  return requestJson<{ status: string }>(`${API_BASE}/productos/${productoId}`, {
+export async function eliminarTipoProducto(
+  token: string,
+  tipoProductoId: number,
+): Promise<{ status: string }> {
+  return requestJson<{ status: string }>(`${API_BASE}/tipos-producto/${tipoProductoId}`, {
     method: 'DELETE',
     headers: authHeaders(token),
   })
@@ -272,7 +262,7 @@ export async function eliminarProducto(token: string, productoId: number): Promi
 
 export async function listarBodegas(
   token: string,
-  params: { page?: number; page_size?: number; q?: string; pais?: string } = {},
+  params: { page?: number; page_size?: number; q?: string } = {},
 ): Promise<PaginacionRespuesta<BodegaDTO>> {
   return requestJson<PaginacionRespuesta<BodegaDTO>>(
     `${API_BASE}/bodegas${toQuery(params)}`,
@@ -297,7 +287,7 @@ export async function eliminarBodega(token: string, bodegaId: number): Promise<{
 
 export async function listarPuertos(
   token: string,
-  params: { page?: number; page_size?: number; q?: string; pais?: string } = {},
+  params: { page?: number; page_size?: number; q?: string; ciudad?: string } = {},
 ): Promise<PaginacionRespuesta<PuertoDTO>> {
   return requestJson<PaginacionRespuesta<PuertoDTO>>(
     `${API_BASE}/puertos${toQuery(params)}`,
@@ -320,14 +310,39 @@ export async function eliminarPuerto(token: string, puertoId: number): Promise<{
   })
 }
 
+export async function listarClientes(
+  token: string,
+  params: { page?: number; page_size?: number; q?: string; email?: string } = {},
+): Promise<PaginacionRespuesta<ClienteDTO>> {
+  return requestJson<PaginacionRespuesta<ClienteDTO>>(
+    `${API_BASE}/clientes${toQuery(params)}`,
+    { method: 'GET', headers: authHeaders(token) },
+  )
+}
+
+export async function crearCliente(token: string, payload: CrearClienteDTO): Promise<ClienteDTO> {
+  return requestJson<ClienteDTO>(`${API_BASE}/clientes`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function eliminarCliente(token: string, clienteId: number): Promise<{ status: string }> {
+  return requestJson<{ status: string }>(`${API_BASE}/clientes/${clienteId}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+}
+
 export async function listarEnvios(
   token: string,
   params: {
     page?: number
     page_size?: number
     q?: string
-    cliente_id?: number
-    producto_id?: number
+    id_cliente?: number
+    id_tipo_producto?: number
     tipo_envio?: TipoEnvio
   } = {},
 ): Promise<PaginacionRespuesta<EnvioDTO>> {

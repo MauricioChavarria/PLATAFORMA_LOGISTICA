@@ -17,7 +17,7 @@ router = APIRouter()
 @router.post("/clientes", response_model=ClienteDTO)
 def crear(dto: CrearClienteDTO, db: DBSession, _: dict = Depends(obtener_usuario_actual)) -> ClienteDTO:
     obj = crear_cliente(db, dto)
-    return ClienteDTO.model_validate(obj)
+    return ClienteDTO.model_validate(obj, from_attributes=True)
 
 
 @router.get("/clientes", response_model=ListaClientesDTO)
@@ -28,21 +28,20 @@ def listar(
     page_size: int = Query(20, ge=1, le=100),
     q: str | None = Query(None, min_length=1),
     email: str | None = None,
-    documento: str | None = None,
 ) -> ListaClientesDTO:
-    items, total = listar_clientes(db, page=page, page_size=page_size, q=q, email=email, documento=documento)
+    items, total = listar_clientes(db, page=page, page_size=page_size, q=q, email=email)
     return ListaClientesDTO(
         page=page,
         page_size=page_size,
         total=total,
-        items=[ClienteDTO.model_validate(o) for o in items],
+        items=[ClienteDTO.model_validate(o, from_attributes=True) for o in items],
     )
 
 
 @router.get("/clientes/{cliente_id}", response_model=ClienteDTO)
 def obtener(cliente_id: int, db: DBSession, _: dict = Depends(obtener_usuario_actual)) -> ClienteDTO:
     obj = obtener_cliente(db, cliente_id)
-    return ClienteDTO.model_validate(obj)
+    return ClienteDTO.model_validate(obj, from_attributes=True)
 
 
 @router.patch("/clientes/{cliente_id}", response_model=ClienteDTO)
@@ -53,7 +52,7 @@ def actualizar(
     _: dict = Depends(obtener_usuario_actual),
 ) -> ClienteDTO:
     obj = actualizar_cliente(db, cliente_id, dto)
-    return ClienteDTO.model_validate(obj)
+    return ClienteDTO.model_validate(obj, from_attributes=True)
 
 
 @router.delete("/clientes/{cliente_id}")

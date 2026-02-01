@@ -1,23 +1,22 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, delete as sa_delete, func, select
 from sqlalchemy.orm import Session
 
-from app.envios.base.models import EnvioBase, EnvioMaritimo, EnvioTerrestre
+from app.envios.base.models import Envio, EnvioMaritimo, EnvioTerrestre
 
 
-def _base_query() -> Select[tuple[EnvioBase]]:
-    return select(EnvioBase).where(EnvioBase.eliminado_en.is_(None))
+def _base_query() -> Select[tuple[Envio]]:
+    return select(Envio)
 
 
 def crear_terrestre(
     db: Session,
     *,
-    cliente_id: int,
-    producto_id: int,
+    id_cliente: int,
+    id_tipo_producto: int,
     cantidad: int,
     fecha_registro,
     fecha_entrega,
@@ -25,12 +24,12 @@ def crear_terrestre(
     descuento: Decimal,
     precio_final: Decimal,
     numero_guia: str,
-    bodega_id: int,
+    id_bodega: int,
     placa_vehiculo: str,
-) -> tuple[EnvioBase, EnvioTerrestre]:
-    envio = EnvioBase(
-        cliente_id=cliente_id,
-        producto_id=producto_id,
+) -> tuple[Envio, EnvioTerrestre]:
+    envio = Envio(
+        id_cliente=id_cliente,
+        id_tipo_producto=id_tipo_producto,
         cantidad=cantidad,
         fecha_registro=fecha_registro,
         fecha_entrega=fecha_entrega,
@@ -38,12 +37,11 @@ def crear_terrestre(
         descuento=descuento,
         precio_final=precio_final,
         numero_guia=numero_guia,
-        tipo_envio="TERRESTRE",
     )
     db.add(envio)
-    db.flush()  # obtiene envio.id
+    db.flush()  # obtiene envio.id_envio
 
-    detalle = EnvioTerrestre(envio_id=envio.id, bodega_id=bodega_id, placa_vehiculo=placa_vehiculo)
+    detalle = EnvioTerrestre(id_envio=envio.id_envio, id_bodega=id_bodega, placa_vehiculo=placa_vehiculo)
     db.add(detalle)
     db.commit()
     db.refresh(envio)
@@ -54,8 +52,8 @@ def crear_terrestre(
 def crear_maritimo(
     db: Session,
     *,
-    cliente_id: int,
-    producto_id: int,
+    id_cliente: int,
+    id_tipo_producto: int,
     cantidad: int,
     fecha_registro,
     fecha_entrega,
@@ -63,12 +61,12 @@ def crear_maritimo(
     descuento: Decimal,
     precio_final: Decimal,
     numero_guia: str,
-    puerto_id: int,
+    id_puerto: int,
     numero_flota: str,
-) -> tuple[EnvioBase, EnvioMaritimo]:
-    envio = EnvioBase(
-        cliente_id=cliente_id,
-        producto_id=producto_id,
+) -> tuple[Envio, EnvioMaritimo]:
+    envio = Envio(
+        id_cliente=id_cliente,
+        id_tipo_producto=id_tipo_producto,
         cantidad=cantidad,
         fecha_registro=fecha_registro,
         fecha_entrega=fecha_entrega,
@@ -76,12 +74,11 @@ def crear_maritimo(
         descuento=descuento,
         precio_final=precio_final,
         numero_guia=numero_guia,
-        tipo_envio="MARITIMO",
     )
     db.add(envio)
     db.flush()
 
-    detalle = EnvioMaritimo(envio_id=envio.id, puerto_id=puerto_id, numero_flota=numero_flota)
+    detalle = EnvioMaritimo(id_envio=envio.id_envio, id_puerto=id_puerto, numero_flota=numero_flota)
     db.add(detalle)
     db.commit()
     db.refresh(envio)
@@ -92,13 +89,13 @@ def crear_maritimo(
 def obtener_por_id(
     db: Session,
     envio_id: int,
-) -> tuple[EnvioBase, EnvioTerrestre | None, EnvioMaritimo | None] | None:
+) -> tuple[Envio, EnvioTerrestre | None, EnvioMaritimo | None] | None:
     query = (
         _base_query()
-        .where(EnvioBase.id == envio_id)
-        .outerjoin(EnvioTerrestre, EnvioTerrestre.envio_id == EnvioBase.id)
-        .outerjoin(EnvioMaritimo, EnvioMaritimo.envio_id == EnvioBase.id)
-        .with_only_columns(EnvioBase, EnvioTerrestre, EnvioMaritimo)
+        .where(Envio.id_envio == envio_id)
+        .outerjoin(EnvioTerrestre, EnvioTerrestre.id_envio == Envio.id_envio)
+        .outerjoin(EnvioMaritimo, EnvioMaritimo.id_envio == Envio.id_envio)
+        .with_only_columns(Envio, EnvioTerrestre, EnvioMaritimo)
     )
 
     row = db.execute(query).first()
@@ -115,33 +112,38 @@ def listar(
     page: int,
     page_size: int,
     q: str | None = None,
-    cliente_id: int | None = None,
-    producto_id: int | None = None,
+    id_cliente: int | None = None,
+    id_tipo_producto: int | None = None,
     tipo_envio: str | None = None,
-) -> tuple[list[tuple[EnvioBase, EnvioTerrestre | None, EnvioMaritimo | None]], int]:
-    base = _base_query()
+) -> tuple[list[tuple[Envio, EnvioTerrestre | None, EnvioMaritimo | None]], int]:
+    base = (
+        _base_query()
+        .outerjoin(EnvioTerrestre, EnvioTerrestre.id_envio == Envio.id_envio)
+        .outerjoin(EnvioMaritimo, EnvioMaritimo.id_envio == Envio.id_envio)
+    )
 
     if q:
         like = f"%{q.strip()}%"
-        base = base.where(EnvioBase.numero_guia.ilike(like))
-    if cliente_id is not None:
-        base = base.where(EnvioBase.cliente_id == cliente_id)
-    if producto_id is not None:
-        base = base.where(EnvioBase.producto_id == producto_id)
-    if tipo_envio is not None:
-        base = base.where(EnvioBase.tipo_envio == tipo_envio)
+        base = base.where(Envio.numero_guia.ilike(like))
+    if id_cliente is not None:
+        base = base.where(Envio.id_cliente == id_cliente)
+    if id_tipo_producto is not None:
+        base = base.where(Envio.id_tipo_producto == id_tipo_producto)
 
-    total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
+    if tipo_envio == "TERRESTRE":
+        base = base.where(EnvioTerrestre.id_envio.is_not(None))
+    elif tipo_envio == "MARITIMO":
+        base = base.where(EnvioMaritimo.id_envio.is_not(None))
 
+    total_subq = base.with_only_columns(Envio.id_envio).subquery()
+    total = db.scalar(select(func.count()).select_from(total_subq)) or 0
     offset = (page - 1) * page_size
 
     query = (
-        base.order_by(EnvioBase.id.asc())
+        base.order_by(Envio.id_envio.asc())
         .offset(offset)
         .limit(page_size)
-        .outerjoin(EnvioTerrestre, EnvioTerrestre.envio_id == EnvioBase.id)
-        .outerjoin(EnvioMaritimo, EnvioMaritimo.envio_id == EnvioBase.id)
-        .with_only_columns(EnvioBase, EnvioTerrestre, EnvioMaritimo)
+        .with_only_columns(Envio, EnvioTerrestre, EnvioMaritimo)
     )
 
     rows = db.execute(query).all()
@@ -151,8 +153,10 @@ def listar(
 
 def actualizar_base(
     db: Session,
-    envio: EnvioBase,
+    envio: Envio,
     *,
+    id_cliente: int | None = None,
+    id_tipo_producto: int | None = None,
     cantidad: int | None = None,
     fecha_registro=None,
     fecha_entrega=None,
@@ -160,21 +164,23 @@ def actualizar_base(
     descuento: Decimal | None = None,
     precio_final: Decimal | None = None,
     numero_guia: str | None = None,
-) -> EnvioBase:
+) -> Envio:
+    if id_cliente is not None:
+        envio.id_cliente = id_cliente
+    if id_tipo_producto is not None:
+        envio.id_tipo_producto = id_tipo_producto
     if cantidad is not None:
         envio.cantidad = cantidad
     if fecha_registro is not None:
         envio.fecha_registro = fecha_registro
     if fecha_entrega is not None:
         envio.fecha_entrega = fecha_entrega
-
     if precio_base is not None:
         envio.precio_base = precio_base
     if descuento is not None:
         envio.descuento = descuento
     if precio_final is not None:
         envio.precio_final = precio_final
-
     if numero_guia is not None:
         envio.numero_guia = numero_guia
 
@@ -188,11 +194,11 @@ def actualizar_terrestre(
     db: Session,
     detalle: EnvioTerrestre,
     *,
-    bodega_id: int | None = None,
+    id_bodega: int | None = None,
     placa_vehiculo: str | None = None,
 ) -> EnvioTerrestre:
-    if bodega_id is not None:
-        detalle.bodega_id = bodega_id
+    if id_bodega is not None:
+        detalle.id_bodega = id_bodega
     if placa_vehiculo is not None:
         detalle.placa_vehiculo = placa_vehiculo
 
@@ -206,11 +212,11 @@ def actualizar_maritimo(
     db: Session,
     detalle: EnvioMaritimo,
     *,
-    puerto_id: int | None = None,
+    id_puerto: int | None = None,
     numero_flota: str | None = None,
 ) -> EnvioMaritimo:
-    if puerto_id is not None:
-        detalle.puerto_id = puerto_id
+    if id_puerto is not None:
+        detalle.id_puerto = id_puerto
     if numero_flota is not None:
         detalle.numero_flota = numero_flota
 
@@ -220,7 +226,11 @@ def actualizar_maritimo(
     return detalle
 
 
-def soft_delete(db: Session, envio: EnvioBase) -> None:
-    envio.eliminado_en = datetime.now(timezone.utc)
-    db.add(envio)
+def eliminar(db: Session, envio: Envio) -> None:
+    # Importante: en Postgres, sin relaciones ORM configuradas, SQLAlchemy puede
+    # intentar borrar primero el padre y violar FKs. Forzamos orden con DELETEs.
+    envio_id = envio.id_envio
+    db.execute(sa_delete(EnvioTerrestre).where(EnvioTerrestre.id_envio == envio_id))
+    db.execute(sa_delete(EnvioMaritimo).where(EnvioMaritimo.id_envio == envio_id))
+    db.execute(sa_delete(Envio).where(Envio.id_envio == envio_id))
     db.commit()

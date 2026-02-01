@@ -1,70 +1,48 @@
-import { useMemo, useState, type SubmitEvent } from 'react'
+import { useEffect, useMemo, useState, type SubmitEvent } from 'react'
 import './App.css'
 
 import {
-  cotizarMaritimo,
-  cotizarTerrestre,
-  crearCliente,
   crearBodega,
+  crearCliente,
   crearEnvio,
-  crearProducto,
   crearPuerto,
-  eliminarCliente,
+  crearTipoProducto,
   eliminarBodega,
+  eliminarCliente,
   eliminarEnvio,
-  eliminarProducto,
   eliminarPuerto,
-  listarClientes,
+  eliminarTipoProducto,
   listarBodegas,
+  listarClientes,
   listarEnvios,
-  listarProductos,
   listarPuertos,
+  listarTiposProducto,
   login,
-  type ClienteDTO,
-  type CrearClienteDTO,
   type CrearBodegaDTO,
+  type CrearClienteDTO,
   type CrearEnvioDTO,
-  type CrearProductoDTO,
   type CrearPuertoDTO,
-  type CotizacionMaritimaRequest,
-  type CotizacionTerrestreRequest,
+  type CrearTipoProductoDTO,
   type EnvioDTO,
-  type ProductoDTO,
   type BodegaDTO,
+  type ClienteDTO,
   type PuertoDTO,
   type TipoEnvio,
+  type TipoProductoDTO,
 } from './api'
 import { guardarToken, leerToken, limpiarToken } from './almacen_token'
 
-type Vista = 'cotizar' | 'clientes' | 'productos' | 'bodegas' | 'puertos' | 'envios'
+type Vista = 'clientes' | 'tipos_producto' | 'bodegas' | 'puertos' | 'envios'
 
 function App() {
   const [token, setToken] = useState<string>(() => leerToken())
   const [mensaje, setMensaje] = useState<string>('')
   const [cargando, setCargando] = useState<boolean>(false)
 
-  const [vista, setVista] = useState<Vista>('cotizar')
+  const [vista, setVista] = useState<Vista>('tipos_producto')
 
   const [usuario, setUsuario] = useState('admin')
   const [contrasena, setContrasena] = useState('admin')
-
-  const [modo, setModo] = useState<'terrestre' | 'maritimo'>('terrestre')
-
-  const [formTerrestre, setFormTerrestre] = useState<CotizacionTerrestreRequest>({
-    guia: 'GUIA-2026-000001',
-    cliente_id: 1,
-    placa_vehiculo: 'ABC123',
-    codigo_flota: 'FLT-0001',
-    cantidad: 10,
-  })
-
-  const [formMaritimo, setFormMaritimo] = useState<CotizacionMaritimaRequest>({
-    guia: 'GUIA-2026-000002',
-    cliente_id: 1,
-    puerto_origen_id: 1,
-    puerto_destino_id: 2,
-    cantidad: 50,
-  })
 
   const autorizado = useMemo(() => token.trim().length > 0, [token])
 
@@ -86,33 +64,11 @@ function App() {
     })()
   }
 
-  const onCotizar = (e: SubmitEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    void (async () => {
-      setMensaje('')
-      setCargando(true)
-      try {
-        if (!autorizado) throw new Error('Primero inicia sesión (token Bearer).')
-
-        const resp =
-          modo === 'terrestre'
-            ? await cotizarTerrestre(token, formTerrestre)
-            : await cotizarMaritimo(token, formMaritimo)
-
-        setMensaje(`Cotización OK:\n${JSON.stringify(resp, null, 2)}`)
-      } catch (err: any) {
-        setMensaje(err?.message ?? 'Error al cotizar')
-      } finally {
-        setCargando(false)
-      }
-    })()
-  }
-
   function onLogout() {
     limpiarToken()
     setToken('')
     setMensaje('Sesión cerrada.')
-    setVista('cotizar')
+    setVista('tipos_producto')
   }
 
   return (
@@ -125,14 +81,11 @@ function App() {
       <div className="card" style={{ textAlign: 'left' }}>
         <h2>Navegación</h2>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          <button type="button" onClick={() => setVista('cotizar')} disabled={cargando}>
-            Cotizar
-          </button>
           <button type="button" onClick={() => setVista('clientes')} disabled={cargando || !autorizado}>
             Clientes
           </button>
-          <button type="button" onClick={() => setVista('productos')} disabled={cargando || !autorizado}>
-            Productos
+          <button type="button" onClick={() => setVista('tipos_producto')} disabled={cargando || !autorizado}>
+            Tipos de producto
           </button>
           <button type="button" onClick={() => setVista('bodegas')} disabled={cargando || !autorizado}>
             Bodegas
@@ -187,134 +140,8 @@ function App() {
         </form>
       </div>
 
-      <div className="card" style={{ textAlign: 'left' }}>
-        <h2>Cotización de envíos</h2>
-
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
-          <label>
-            <span>Tipo</span>
-            <select value={modo} onChange={(e) => setModo(e.target.value as any)}>
-              <option value="terrestre">Terrestre</option>
-              <option value="maritimo">Marítimo</option>
-            </select>
-          </label>
-          <small>
-            <span>Endpoints: </span>
-            <code>/api/v1/envios/terrestres/cotizar</code>
-            <span> / </span>
-            <code>/api/v1/envios/maritimos/cotizar</code>
-          </small>
-        </div>
-
-        <form onSubmit={onCotizar} style={{ display: 'grid', gap: 8, maxWidth: 520 }}>
-          {modo === 'terrestre' ? (
-            <>
-              <label>
-                <span>Guía</span>
-                <input
-                  value={formTerrestre.guia}
-                  onChange={(e) => setFormTerrestre({ ...formTerrestre, guia: e.target.value })}
-                />
-              </label>
-              <label>
-                <span>Cliente ID</span>
-                <input
-                  type="number"
-                  value={formTerrestre.cliente_id}
-                  onChange={(e) =>
-                    setFormTerrestre({ ...formTerrestre, cliente_id: Number(e.target.value) })
-                  }
-                />
-              </label>
-              <label>
-                <span>Placa vehículo</span>
-                <input
-                  value={formTerrestre.placa_vehiculo}
-                  onChange={(e) =>
-                    setFormTerrestre({ ...formTerrestre, placa_vehiculo: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                <span>Código flota</span>
-                <input
-                  value={formTerrestre.codigo_flota}
-                  onChange={(e) =>
-                    setFormTerrestre({ ...formTerrestre, codigo_flota: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                <span>Cantidad</span>
-                <input
-                  type="number"
-                  value={formTerrestre.cantidad}
-                  onChange={(e) =>
-                    setFormTerrestre({ ...formTerrestre, cantidad: Number(e.target.value) })
-                  }
-                />
-              </label>
-            </>
-          ) : (
-            <>
-              <label>
-                <span>Guía</span>
-                <input
-                  value={formMaritimo.guia}
-                  onChange={(e) => setFormMaritimo({ ...formMaritimo, guia: e.target.value })}
-                />
-              </label>
-              <label>
-                <span>Cliente ID</span>
-                <input
-                  type="number"
-                  value={formMaritimo.cliente_id}
-                  onChange={(e) =>
-                    setFormMaritimo({ ...formMaritimo, cliente_id: Number(e.target.value) })
-                  }
-                />
-              </label>
-              <label>
-                <span>Puerto origen ID</span>
-                <input
-                  type="number"
-                  value={formMaritimo.puerto_origen_id}
-                  onChange={(e) =>
-                    setFormMaritimo({ ...formMaritimo, puerto_origen_id: Number(e.target.value) })
-                  }
-                />
-              </label>
-              <label>
-                <span>Puerto destino ID</span>
-                <input
-                  type="number"
-                  value={formMaritimo.puerto_destino_id}
-                  onChange={(e) =>
-                    setFormMaritimo({ ...formMaritimo, puerto_destino_id: Number(e.target.value) })
-                  }
-                />
-              </label>
-              <label>
-                <span>Cantidad</span>
-                <input
-                  type="number"
-                  value={formMaritimo.cantidad}
-                  onChange={(e) =>
-                    setFormMaritimo({ ...formMaritimo, cantidad: Number(e.target.value) })
-                  }
-                />
-              </label>
-            </>
-          )}
-
-          <button type="submit" disabled={cargando}>
-            {cargando ? 'Cotizando...' : 'Cotizar'}
-          </button>
-        </form>
-      </div>
-
-      {vista === 'productos' ? (
-        <ProductosPanel token={token} setMensaje={setMensaje} setCargando={setCargando} />
+      {vista === 'tipos_producto' ? (
+        <TiposProductoPanel token={token} setMensaje={setMensaje} setCargando={setCargando} />
       ) : null}
 
       {vista === 'clientes' ? (
@@ -344,7 +171,7 @@ function App() {
 
 export default App
 
-function ClientesPanel(
+function TiposProductoPanel(
   props: Readonly<{
     token: string
     setMensaje: (s: string) => void
@@ -354,36 +181,23 @@ function ClientesPanel(
   const { token, setMensaje, setCargando } = props
 
   const [q, setQ] = useState<string>('')
-  const [email, setEmail] = useState<string>('')
-  const [documento, setDocumento] = useState<string>('')
   const [page, setPage] = useState<number>(1)
   const [pageSize, setPageSize] = useState<number>(10)
-  const [items, setItems] = useState<ClienteDTO[]>([])
+  const [items, setItems] = useState<TipoProductoDTO[]>([])
   const [total, setTotal] = useState<number>(0)
 
-  const [nuevo, setNuevo] = useState<CrearClienteDTO>({
-    nombre: '',
-    email: '',
-    documento: '',
-    telefono: '',
-  })
+  const [nuevo, setNuevo] = useState<CrearTipoProductoDTO>({ nombre: '' })
 
   const cargar = () => {
     void (async () => {
       setMensaje('')
       setCargando(true)
       try {
-        const resp = await listarClientes(token, {
-          page,
-          page_size: pageSize,
-          q: q.trim() || undefined,
-          email: email.trim() || undefined,
-          documento: documento.trim() || undefined,
-        })
+        const resp = await listarTiposProducto(token, { page, page_size: pageSize, q: q.trim() || undefined })
         setItems(resp.items)
         setTotal(resp.total)
       } catch (err: any) {
-        setMensaje(err?.message ?? 'Error cargando clientes')
+        setMensaje(err?.message ?? 'Error cargando tipos de producto')
       } finally {
         setCargando(false)
       }
@@ -396,16 +210,11 @@ function ClientesPanel(
       setMensaje('')
       setCargando(true)
       try {
-        await crearCliente(token, {
-          nombre: nuevo.nombre,
-          email: nuevo.email,
-          documento: nuevo.documento,
-          telefono: nuevo.telefono?.trim() ? nuevo.telefono : null,
-        })
-        setNuevo({ nombre: '', email: '', documento: '', telefono: '' })
+        await crearTipoProducto(token, { nombre: nuevo.nombre })
+        setNuevo({ nombre: '' })
         cargar()
       } catch (err: any) {
-        setMensaje(err?.message ?? 'Error creando cliente')
+        setMensaje(err?.message ?? 'Error creando tipo de producto')
       } finally {
         setCargando(false)
       }
@@ -417,10 +226,10 @@ function ClientesPanel(
       setMensaje('')
       setCargando(true)
       try {
-        await eliminarCliente(token, id)
+        await eliminarTipoProducto(token, id)
         cargar()
       } catch (err: any) {
-        setMensaje(err?.message ?? 'Error eliminando cliente')
+        setMensaje(err?.message ?? 'Error eliminando tipo de producto')
       } finally {
         setCargando(false)
       }
@@ -429,187 +238,14 @@ function ClientesPanel(
 
   return (
     <div className="card" style={{ textAlign: 'left' }}>
-      <h2>Clientes</h2>
-
-      <form onSubmit={onCrear} style={{ display: 'grid', gap: 8, maxWidth: 640, marginBottom: 12 }}>
-        <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr' }}>
-          <label>
-            <span>Nombre</span>
-            <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} />
-          </label>
-          <label>
-            <span>Email</span>
-            <input value={nuevo.email} onChange={(e) => setNuevo({ ...nuevo, email: e.target.value })} />
-          </label>
-          <label>
-            <span>Documento</span>
-            <input
-              value={nuevo.documento}
-              onChange={(e) => setNuevo({ ...nuevo, documento: e.target.value })}
-            />
-          </label>
-          <label>
-            <span>Teléfono</span>
-            <input value={nuevo.telefono ?? ''} onChange={(e) => setNuevo({ ...nuevo, telefono: e.target.value })} />
-          </label>
-        </div>
-
-        <button type="submit">Crear cliente</button>
-      </form>
-
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <label>
-          <span>Buscar</span>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="q (nombre/email/doc)" />
-        </label>
-        <label>
-          <span>Email</span>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="" />
-        </label>
-        <label>
-          <span>Documento</span>
-          <input value={documento} onChange={(e) => setDocumento(e.target.value)} placeholder="" />
-        </label>
-        <label>
-          <span>Page</span>
-          <input type="number" value={page} min={1} onChange={(e) => setPage(Number(e.target.value))} />
-        </label>
-        <label>
-          <span>Page size</span>
-          <input
-            type="number"
-            value={pageSize}
-            min={1}
-            max={100}
-            onChange={(e) => setPageSize(Number(e.target.value))}
-          />
-        </label>
-        <button type="button" onClick={cargar}>
-          Refrescar
-        </button>
-        <small>Total: {total}</small>
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        {items.length === 0 ? (
-          <small>Sin resultados.</small>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left' }}>ID</th>
-                <th style={{ textAlign: 'left' }}>Nombre</th>
-                <th style={{ textAlign: 'left' }}>Email</th>
-                <th style={{ textAlign: 'left' }}>Documento</th>
-                <th style={{ textAlign: 'left' }}>Teléfono</th>
-                <th style={{ textAlign: 'left' }}>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((c) => (
-                <tr key={c.id}>
-                  <td>{c.id}</td>
-                  <td>{c.nombre}</td>
-                  <td>{c.email}</td>
-                  <td>{c.documento}</td>
-                  <td>{c.telefono ?? ''}</td>
-                  <td>
-                    <button type="button" onClick={() => onEliminar(c.id)}>
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function ProductosPanel(
-  props: Readonly<{
-  token: string
-  setMensaje: (s: string) => void
-  setCargando: (b: boolean) => void
-  }>,
-) {
-  const { token, setMensaje, setCargando } = props
-
-  const [q, setQ] = useState<string>('')
-  const [page, setPage] = useState<number>(1)
-  const [pageSize, setPageSize] = useState<number>(10)
-  const [items, setItems] = useState<ProductoDTO[]>([])
-  const [total, setTotal] = useState<number>(0)
-
-  const [nuevo, setNuevo] = useState<CrearProductoDTO>({ nombre: '', descripcion: '' })
-
-  const cargar = () => {
-    void (async () => {
-      setMensaje('')
-      setCargando(true)
-      try {
-        const resp = await listarProductos(token, { page, page_size: pageSize, q: q.trim() || undefined })
-        setItems(resp.items)
-        setTotal(resp.total)
-      } catch (err: any) {
-        setMensaje(err?.message ?? 'Error cargando productos')
-      } finally {
-        setCargando(false)
-      }
-    })()
-  }
-
-  const onCrear = (e: SubmitEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    void (async () => {
-      setMensaje('')
-      setCargando(true)
-      try {
-        await crearProducto(token, { nombre: nuevo.nombre, descripcion: nuevo.descripcion || null })
-        setNuevo({ nombre: '', descripcion: '' })
-        cargar()
-      } catch (err: any) {
-        setMensaje(err?.message ?? 'Error creando producto')
-      } finally {
-        setCargando(false)
-      }
-    })()
-  }
-
-  const onEliminar = (id: number) => {
-    void (async () => {
-      setMensaje('')
-      setCargando(true)
-      try {
-        await eliminarProducto(token, id)
-        cargar()
-      } catch (err: any) {
-        setMensaje(err?.message ?? 'Error eliminando producto')
-      } finally {
-        setCargando(false)
-      }
-    })()
-  }
-
-  return (
-    <div className="card" style={{ textAlign: 'left' }}>
-      <h2>Productos</h2>
+      <h2>Tipos de producto</h2>
 
       <form onSubmit={onCrear} style={{ display: 'grid', gap: 8, maxWidth: 520, marginBottom: 12 }}>
         <label>
           <span>Nombre</span>
           <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} />
         </label>
-        <label>
-          <span>Descripción</span>
-          <input
-            value={nuevo.descripcion ?? ''}
-            onChange={(e) => setNuevo({ ...nuevo, descripcion: e.target.value })}
-          />
-        </label>
-        <button type="submit">Crear producto</button>
+        <button type="submit">Crear tipo</button>
       </form>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -646,18 +282,16 @@ function ProductosPanel(
               <tr>
                 <th style={{ textAlign: 'left' }}>ID</th>
                 <th style={{ textAlign: 'left' }}>Nombre</th>
-                <th style={{ textAlign: 'left' }}>Descripción</th>
                 <th style={{ textAlign: 'left' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.id}</td>
-                  <td>{p.nombre}</td>
-                  <td>{p.descripcion ?? ''}</td>
+              {items.map((t) => (
+                <tr key={t.id_tipo_producto}>
+                  <td>{t.id_tipo_producto}</td>
+                  <td>{t.nombre}</td>
                   <td>
-                    <button type="button" onClick={() => onEliminar(p.id)}>
+                    <button type="button" onClick={() => onEliminar(t.id_tipo_producto)}>
                       Eliminar
                     </button>
                   </td>
@@ -673,21 +307,20 @@ function ProductosPanel(
 
 function BodegasPanel(
   props: Readonly<{
-  token: string
-  setMensaje: (s: string) => void
-  setCargando: (b: boolean) => void
+    token: string
+    setMensaje: (s: string) => void
+    setCargando: (b: boolean) => void
   }>,
 ) {
   const { token, setMensaje, setCargando } = props
 
   const [q, setQ] = useState<string>('')
-  const [pais, setPais] = useState<string>('')
   const [page, setPage] = useState<number>(1)
   const [pageSize, setPageSize] = useState<number>(10)
   const [items, setItems] = useState<BodegaDTO[]>([])
   const [total, setTotal] = useState<number>(0)
 
-  const [nuevo, setNuevo] = useState<CrearBodegaDTO>({ nombre: '', ubicacion: '', pais: '' })
+  const [nuevo, setNuevo] = useState<CrearBodegaDTO>({ nombre: '', direccion: '' })
 
   const cargar = () => {
     void (async () => {
@@ -698,7 +331,6 @@ function BodegasPanel(
           page,
           page_size: pageSize,
           q: q.trim() || undefined,
-          pais: pais.trim() || undefined,
         })
         setItems(resp.items)
         setTotal(resp.total)
@@ -716,8 +348,8 @@ function BodegasPanel(
       setMensaje('')
       setCargando(true)
       try {
-        await crearBodega(token, nuevo)
-        setNuevo({ nombre: '', ubicacion: '', pais: '' })
+        await crearBodega(token, { nombre: nuevo.nombre, direccion: nuevo.direccion?.trim() ? nuevo.direccion : null })
+        setNuevo({ nombre: '', direccion: '' })
         cargar()
       } catch (err: any) {
         setMensaje(err?.message ?? 'Error creando bodega')
@@ -752,15 +384,11 @@ function BodegasPanel(
           <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} />
         </label>
         <label>
-          <span>Ubicación</span>
+          <span>Dirección</span>
           <input
-            value={nuevo.ubicacion}
-            onChange={(e) => setNuevo({ ...nuevo, ubicacion: e.target.value })}
+            value={nuevo.direccion ?? ''}
+            onChange={(e) => setNuevo({ ...nuevo, direccion: e.target.value })}
           />
-        </label>
-        <label>
-          <span>País</span>
-          <input value={nuevo.pais} onChange={(e) => setNuevo({ ...nuevo, pais: e.target.value })} />
         </label>
         <button type="submit">Crear bodega</button>
       </form>
@@ -769,10 +397,6 @@ function BodegasPanel(
         <label>
           <span>Buscar</span>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="q (nombre)" />
-        </label>
-        <label>
-          <span>País</span>
-          <input value={pais} onChange={(e) => setPais(e.target.value)} placeholder="CO" />
         </label>
         <label>
           <span>Page</span>
@@ -803,20 +427,18 @@ function BodegasPanel(
               <tr>
                 <th style={{ textAlign: 'left' }}>ID</th>
                 <th style={{ textAlign: 'left' }}>Nombre</th>
-                <th style={{ textAlign: 'left' }}>Ubicación</th>
-                <th style={{ textAlign: 'left' }}>País</th>
+                <th style={{ textAlign: 'left' }}>Dirección</th>
                 <th style={{ textAlign: 'left' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {items.map((b) => (
-                <tr key={b.id}>
-                  <td>{b.id}</td>
+                <tr key={b.id_bodega}>
+                  <td>{b.id_bodega}</td>
                   <td>{b.nombre}</td>
-                  <td>{b.ubicacion}</td>
-                  <td>{b.pais}</td>
+                  <td>{b.direccion ?? ''}</td>
                   <td>
-                    <button type="button" onClick={() => onEliminar(b.id)}>
+                    <button type="button" onClick={() => onEliminar(b.id_bodega)}>
                       Eliminar
                     </button>
                   </td>
@@ -832,21 +454,21 @@ function BodegasPanel(
 
 function PuertosPanel(
   props: Readonly<{
-  token: string
-  setMensaje: (s: string) => void
-  setCargando: (b: boolean) => void
+    token: string
+    setMensaje: (s: string) => void
+    setCargando: (b: boolean) => void
   }>,
 ) {
   const { token, setMensaje, setCargando } = props
 
   const [q, setQ] = useState<string>('')
-  const [pais, setPais] = useState<string>('')
+  const [ciudad, setCiudad] = useState<string>('')
   const [page, setPage] = useState<number>(1)
   const [pageSize, setPageSize] = useState<number>(10)
   const [items, setItems] = useState<PuertoDTO[]>([])
   const [total, setTotal] = useState<number>(0)
 
-  const [nuevo, setNuevo] = useState<CrearPuertoDTO>({ nombre: '', pais: '' })
+  const [nuevo, setNuevo] = useState<CrearPuertoDTO>({ nombre: '', ciudad: '' })
 
   const cargar = () => {
     void (async () => {
@@ -857,7 +479,7 @@ function PuertosPanel(
           page,
           page_size: pageSize,
           q: q.trim() || undefined,
-          pais: pais.trim() || undefined,
+          ciudad: ciudad.trim() || undefined,
         })
         setItems(resp.items)
         setTotal(resp.total)
@@ -875,8 +497,8 @@ function PuertosPanel(
       setMensaje('')
       setCargando(true)
       try {
-        await crearPuerto(token, nuevo)
-        setNuevo({ nombre: '', pais: '' })
+        await crearPuerto(token, { nombre: nuevo.nombre, ciudad: nuevo.ciudad?.trim() ? nuevo.ciudad : null })
+        setNuevo({ nombre: '', ciudad: '' })
         cargar()
       } catch (err: any) {
         setMensaje(err?.message ?? 'Error creando puerto')
@@ -911,8 +533,8 @@ function PuertosPanel(
           <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} />
         </label>
         <label>
-          <span>País</span>
-          <input value={nuevo.pais} onChange={(e) => setNuevo({ ...nuevo, pais: e.target.value })} />
+          <span>Ciudad</span>
+          <input value={nuevo.ciudad ?? ''} onChange={(e) => setNuevo({ ...nuevo, ciudad: e.target.value })} />
         </label>
         <button type="submit">Crear puerto</button>
       </form>
@@ -923,8 +545,8 @@ function PuertosPanel(
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="q (nombre)" />
         </label>
         <label>
-          <span>País</span>
-          <input value={pais} onChange={(e) => setPais(e.target.value)} placeholder="CO" />
+          <span>Ciudad</span>
+          <input value={ciudad} onChange={(e) => setCiudad(e.target.value)} placeholder="Cartagena" />
         </label>
         <label>
           <span>Page</span>
@@ -955,18 +577,162 @@ function PuertosPanel(
               <tr>
                 <th style={{ textAlign: 'left' }}>ID</th>
                 <th style={{ textAlign: 'left' }}>Nombre</th>
-                <th style={{ textAlign: 'left' }}>País</th>
+                <th style={{ textAlign: 'left' }}>Ciudad</th>
                 <th style={{ textAlign: 'left' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {items.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.id}</td>
+                <tr key={p.id_puerto}>
+                  <td>{p.id_puerto}</td>
                   <td>{p.nombre}</td>
-                  <td>{p.pais}</td>
+                  <td>{p.ciudad ?? ''}</td>
                   <td>
-                    <button type="button" onClick={() => onEliminar(p.id)}>
+                    <button type="button" onClick={() => onEliminar(p.id_puerto)}>
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ClientesPanel(
+  props: Readonly<{
+    token: string
+    setMensaje: (s: string) => void
+    setCargando: (b: boolean) => void
+  }>,
+) {
+  const { token, setMensaje, setCargando } = props
+
+  const [q, setQ] = useState<string>('')
+  const [page, setPage] = useState<number>(1)
+  const [pageSize, setPageSize] = useState<number>(10)
+  const [items, setItems] = useState<ClienteDTO[]>([])
+  const [total, setTotal] = useState<number>(0)
+
+  const [nuevo, setNuevo] = useState<CrearClienteDTO>({ nombre: '', email: '', telefono: '' })
+
+  const cargar = () => {
+    void (async () => {
+      setMensaje('')
+      setCargando(true)
+      try {
+        const resp = await listarClientes(token, { page, page_size: pageSize, q: q.trim() || undefined })
+        setItems(resp.items)
+        setTotal(resp.total)
+      } catch (err: any) {
+        setMensaje(err?.message ?? 'Error cargando clientes')
+      } finally {
+        setCargando(false)
+      }
+    })()
+  }
+
+  const onCrear = (e: SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    void (async () => {
+      setMensaje('')
+      setCargando(true)
+      try {
+        await crearCliente(token, {
+          nombre: nuevo.nombre,
+          email: nuevo.email?.trim() ? nuevo.email.trim() : null,
+          telefono: nuevo.telefono?.trim() ? nuevo.telefono.trim() : null,
+        })
+        setNuevo({ nombre: '', email: '', telefono: '' })
+        cargar()
+      } catch (err: any) {
+        setMensaje(err?.message ?? 'Error creando cliente')
+      } finally {
+        setCargando(false)
+      }
+    })()
+  }
+
+  const onEliminar = (id: number) => {
+    void (async () => {
+      setMensaje('')
+      setCargando(true)
+      try {
+        await eliminarCliente(token, id)
+        cargar()
+      } catch (err: any) {
+        setMensaje(err?.message ?? 'Error eliminando cliente')
+      } finally {
+        setCargando(false)
+      }
+    })()
+  }
+
+  return (
+    <div className="card" style={{ textAlign: 'left' }}>
+      <h2>Clientes</h2>
+
+      <form onSubmit={onCrear} style={{ display: 'grid', gap: 8, maxWidth: 520, marginBottom: 12 }}>
+        <label>
+          <span>Nombre</span>
+          <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} />
+        </label>
+        <label>
+          <span>Email</span>
+          <input value={nuevo.email ?? ''} onChange={(e) => setNuevo({ ...nuevo, email: e.target.value })} />
+        </label>
+        <label>
+          <span>Teléfono</span>
+          <input value={nuevo.telefono ?? ''} onChange={(e) => setNuevo({ ...nuevo, telefono: e.target.value })} />
+        </label>
+        <button type="submit">Crear cliente</button>
+      </form>
+
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <label>
+          <span>Buscar</span>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="q (nombre/email)" />
+        </label>
+        <label>
+          <span>Page</span>
+          <input type="number" value={page} min={1} onChange={(e) => setPage(Number(e.target.value))} />
+        </label>
+        <label>
+          <span>Page size</span>
+          <input type="number" value={pageSize} min={1} max={100} onChange={(e) => setPageSize(Number(e.target.value))} />
+        </label>
+        <button type="button" onClick={cargar}>
+          Refrescar
+        </button>
+        <small>Total: {total}</small>
+      </div>
+
+      <div style={{ marginTop: 12 }}>
+        {items.length === 0 ? (
+          <small>Sin resultados.</small>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left' }}>ID</th>
+                <th style={{ textAlign: 'left' }}>Nombre</th>
+                <th style={{ textAlign: 'left' }}>Email</th>
+                <th style={{ textAlign: 'left' }}>Teléfono</th>
+                <th style={{ textAlign: 'left' }}>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((c) => (
+                <tr key={c.id_cliente}>
+                  <td>{c.id_cliente}</td>
+                  <td>{c.nombre}</td>
+                  <td>{c.email ?? ''}</td>
+                  <td>{c.telefono ?? ''}</td>
+                  <td>
+                    <button type="button" onClick={() => onEliminar(c.id_cliente)}>
                       Eliminar
                     </button>
                   </td>
@@ -982,9 +748,9 @@ function PuertosPanel(
 
 function EnviosPanel(
   props: Readonly<{
-  token: string
-  setMensaje: (s: string) => void
-  setCargando: (b: boolean) => void
+    token: string
+    setMensaje: (s: string) => void
+    setCargando: (b: boolean) => void
   }>,
 ) {
   const { token, setMensaje, setCargando } = props
@@ -992,27 +758,62 @@ function EnviosPanel(
   const [q, setQ] = useState<string>('')
   const [tipo, setTipo] = useState<TipoEnvio | ''>('')
   const [clienteId, setClienteId] = useState<string>('')
-  const [productoId, setProductoId] = useState<string>('')
+  const [tipoProductoId, setTipoProductoId] = useState<string>('')
 
   const [page, setPage] = useState<number>(1)
   const [pageSize, setPageSize] = useState<number>(10)
   const [items, setItems] = useState<EnvioDTO[]>([])
   const [total, setTotal] = useState<number>(0)
 
+  const [catalogoTiposProducto, setCatalogoTiposProducto] = useState<TipoProductoDTO[]>([])
+  const [catalogoBodegas, setCatalogoBodegas] = useState<BodegaDTO[]>([])
+  const [catalogoPuertos, setCatalogoPuertos] = useState<PuertoDTO[]>([])
+  const [catalogoClientes, setCatalogoClientes] = useState<ClienteDTO[]>([])
+
   const hoy = new Date().toISOString().slice(0, 10)
   const [nuevo, setNuevo] = useState<CrearEnvioDTO>({
-    cliente_id: 1,
-    producto_id: 1,
+    id_cliente: 1,
+    id_tipo_producto: 1,
     cantidad: 1,
     fecha_registro: hoy,
     fecha_entrega: hoy,
     precio_base: '0',
-    descuento: '0',
-    numero_guia: 'GUIA-0001',
+    numero_guia: 'GUIA0001',
     tipo_envio: 'TERRESTRE',
-    bodega_id: 1,
+    id_bodega: 1,
     placa_vehiculo: 'ABC123',
+    id_puerto: 1,
+    numero_flota: 'ABC1234Z',
   })
+
+  const cargarCatalogos = () => {
+    void (async () => {
+      setMensaje('')
+      setCargando(true)
+      try {
+        const [clientesResp, tiposResp, bodegasResp, puertosResp] = await Promise.all([
+          listarClientes(token, { page: 1, page_size: 100 }),
+          listarTiposProducto(token, { page: 1, page_size: 100 }),
+          listarBodegas(token, { page: 1, page_size: 100 }),
+          listarPuertos(token, { page: 1, page_size: 100 }),
+        ])
+        setCatalogoClientes(clientesResp.items)
+        setCatalogoTiposProducto(tiposResp.items)
+        setCatalogoBodegas(bodegasResp.items)
+        setCatalogoPuertos(puertosResp.items)
+      } catch (err: any) {
+        setMensaje(err?.message ?? 'Error cargando catálogos')
+      } finally {
+        setCargando(false)
+      }
+    })()
+  }
+
+  useEffect(() => {
+    if (!token.trim()) return
+    cargarCatalogos()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
 
   const cargar = () => {
     void (async () => {
@@ -1024,8 +825,8 @@ function EnviosPanel(
           page_size: pageSize,
           q: q.trim() || undefined,
           tipo_envio: tipo || undefined,
-          cliente_id: clienteId.trim() ? Number(clienteId) : undefined,
-          producto_id: productoId.trim() ? Number(productoId) : undefined,
+          id_cliente: clienteId.trim() ? Number(clienteId) : undefined,
+          id_tipo_producto: tipoProductoId.trim() ? Number(tipoProductoId) : undefined,
         })
         setItems(resp.items)
         setTotal(resp.total)
@@ -1043,21 +844,29 @@ function EnviosPanel(
       setMensaje('')
       setCargando(true)
       try {
-        const payload: CrearEnvioDTO = {
-          ...nuevo,
-          cliente_id: Number(nuevo.cliente_id),
-          producto_id: Number(nuevo.producto_id),
+        const base = {
+          id_cliente: Number(nuevo.id_cliente),
+          id_tipo_producto: Number(nuevo.id_tipo_producto),
           cantidad: Number(nuevo.cantidad),
+          fecha_registro: nuevo.fecha_registro,
+          fecha_entrega: nuevo.fecha_entrega,
+          precio_base: nuevo.precio_base,
+          numero_guia: nuevo.numero_guia,
+          tipo_envio: nuevo.tipo_envio,
         }
 
-        if (payload.tipo_envio === 'TERRESTRE') {
-          delete (payload as any).puerto_id
-          delete (payload as any).numero_flota
-        }
-        if (payload.tipo_envio === 'MARITIMO') {
-          delete (payload as any).bodega_id
-          delete (payload as any).placa_vehiculo
-        }
+        const payload: CrearEnvioDTO =
+          nuevo.tipo_envio === 'TERRESTRE'
+            ? {
+                ...base,
+                id_bodega: Number(nuevo.id_bodega),
+                placa_vehiculo: (nuevo.placa_vehiculo ?? '').trim(),
+              }
+            : {
+                ...base,
+                id_puerto: Number(nuevo.id_puerto),
+                numero_flota: (nuevo.numero_flota ?? '').trim(),
+              }
 
         await crearEnvio(token, payload)
         setMensaje('Envío creado.')
@@ -1090,6 +899,15 @@ function EnviosPanel(
       <h2>Envíos</h2>
 
       <form onSubmit={onCrear} style={{ display: 'grid', gap: 8, maxWidth: 720, marginBottom: 12 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button type="button" onClick={cargarCatalogos}>
+            Cargar catálogos
+          </button>
+          <small>
+            Clientes: {catalogoClientes.length} · Tipos: {catalogoTiposProducto.length} · Bodegas: {catalogoBodegas.length} · Puertos: {catalogoPuertos.length}
+          </small>
+        </div>
+
         <label>
           <span>Tipo envío</span>
           <select
@@ -1097,13 +915,18 @@ function EnviosPanel(
             onChange={(e) => {
               const t = e.target.value as TipoEnvio
               if (t === 'TERRESTRE') {
-                setNuevo({ ...nuevo, tipo_envio: t, bodega_id: nuevo.bodega_id ?? 1, placa_vehiculo: nuevo.placa_vehiculo ?? '' })
+                setNuevo({
+                  ...nuevo,
+                  tipo_envio: t,
+                  id_bodega: nuevo.id_bodega ?? 1,
+                  placa_vehiculo: nuevo.placa_vehiculo ?? 'ABC123',
+                })
               } else {
                 setNuevo({
                   ...nuevo,
                   tipo_envio: t,
-                  puerto_id: (nuevo as any).puerto_id ?? 1,
-                  numero_flota: (nuevo as any).numero_flota ?? 'F-01',
+                  id_puerto: nuevo.id_puerto ?? 1,
+                  numero_flota: nuevo.numero_flota ?? 'ABC1234Z',
                 })
               }
             }}
@@ -1115,20 +938,32 @@ function EnviosPanel(
 
         <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr' }}>
           <label>
-            <span>Cliente ID</span>
-            <input
-              type="number"
-              value={nuevo.cliente_id}
-              onChange={(e) => setNuevo({ ...nuevo, cliente_id: Number(e.target.value) })}
-            />
+            <span>Cliente</span>
+            <select
+              value={nuevo.id_cliente}
+              onChange={(e) => setNuevo({ ...nuevo, id_cliente: Number(e.target.value) })}
+            >
+              {catalogoClientes.length === 0 ? <option value={nuevo.id_cliente}>({nuevo.id_cliente})</option> : null}
+              {catalogoClientes.map((c) => (
+                <option key={c.id_cliente} value={c.id_cliente}>
+                  {c.id_cliente} - {c.nombre}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
-            <span>Producto ID</span>
-            <input
-              type="number"
-              value={nuevo.producto_id}
-              onChange={(e) => setNuevo({ ...nuevo, producto_id: Number(e.target.value) })}
-            />
+            <span>Tipo producto</span>
+            <select
+              value={nuevo.id_tipo_producto}
+              onChange={(e) => setNuevo({ ...nuevo, id_tipo_producto: Number(e.target.value) })}
+            >
+              {catalogoTiposProducto.length === 0 ? <option value={nuevo.id_tipo_producto}>({nuevo.id_tipo_producto})</option> : null}
+              {catalogoTiposProducto.map((t) => (
+                <option key={t.id_tipo_producto} value={t.id_tipo_producto}>
+                  {t.id_tipo_producto} - {t.nombre}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             <span>Cantidad</span>
@@ -1160,29 +995,25 @@ function EnviosPanel(
           </label>
           <label>
             <span>Precio base</span>
-            <input
-              value={String(nuevo.precio_base)}
-              onChange={(e) => setNuevo({ ...nuevo, precio_base: e.target.value })}
-            />
+            <input value={String(nuevo.precio_base)} onChange={(e) => setNuevo({ ...nuevo, precio_base: e.target.value })} />
           </label>
-          <label>
-            <span>Descuento</span>
-            <input
-              value={String(nuevo.descuento)}
-              onChange={(e) => setNuevo({ ...nuevo, descuento: e.target.value })}
-            />
-          </label>
+          <small style={{ gridColumn: '1 / -1' }}>
+            Descuento automático: si cantidad &gt; 10 → TERRESTRE 5% / MARITIMO 3%.
+          </small>
         </div>
 
         {nuevo.tipo_envio === 'TERRESTRE' ? (
           <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr' }}>
             <label>
-              <span>Bodega ID</span>
-              <input
-                type="number"
-                value={nuevo.bodega_id ?? 1}
-                onChange={(e) => setNuevo({ ...nuevo, bodega_id: Number(e.target.value) })}
-              />
+              <span>Bodega</span>
+              <select value={nuevo.id_bodega ?? 1} onChange={(e) => setNuevo({ ...nuevo, id_bodega: Number(e.target.value) })}>
+                {catalogoBodegas.length === 0 ? <option value={nuevo.id_bodega ?? 1}>({nuevo.id_bodega ?? 1})</option> : null}
+                {catalogoBodegas.map((b) => (
+                  <option key={b.id_bodega} value={b.id_bodega}>
+                    {b.id_bodega} - {b.nombre}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               <span>Placa vehículo</span>
@@ -1195,17 +1026,20 @@ function EnviosPanel(
         ) : (
           <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr' }}>
             <label>
-              <span>Puerto ID</span>
-              <input
-                type="number"
-                value={(nuevo as any).puerto_id ?? 1}
-                onChange={(e) => setNuevo({ ...nuevo, puerto_id: Number(e.target.value) })}
-              />
+              <span>Puerto</span>
+              <select value={nuevo.id_puerto ?? 1} onChange={(e) => setNuevo({ ...nuevo, id_puerto: Number(e.target.value) })}>
+                {catalogoPuertos.length === 0 ? <option value={nuevo.id_puerto ?? 1}>({nuevo.id_puerto ?? 1})</option> : null}
+                {catalogoPuertos.map((p) => (
+                  <option key={p.id_puerto} value={p.id_puerto}>
+                    {p.id_puerto} - {p.nombre}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               <span>Número flota</span>
               <input
-                value={(nuevo as any).numero_flota ?? ''}
+                value={nuevo.numero_flota ?? ''}
                 onChange={(e) => setNuevo({ ...nuevo, numero_flota: e.target.value })}
               />
             </label>
@@ -1221,6 +1055,10 @@ function EnviosPanel(
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="q (numero_guia)" />
         </label>
         <label>
+          <span>Cliente ID</span>
+          <input value={clienteId} onChange={(e) => setClienteId(e.target.value)} placeholder="" />
+        </label>
+        <label>
           <span>Tipo</span>
           <select value={tipo} onChange={(e) => setTipo(e.target.value as any)}>
             <option value="">(todos)</option>
@@ -1229,12 +1067,8 @@ function EnviosPanel(
           </select>
         </label>
         <label>
-          <span>Cliente ID</span>
-          <input value={clienteId} onChange={(e) => setClienteId(e.target.value)} placeholder="" />
-        </label>
-        <label>
-          <span>Producto ID</span>
-          <input value={productoId} onChange={(e) => setProductoId(e.target.value)} placeholder="" />
+          <span>Tipo producto ID</span>
+          <input value={tipoProductoId} onChange={(e) => setTipoProductoId(e.target.value)} placeholder="" />
         </label>
         <label>
           <span>Page</span>
@@ -1267,22 +1101,34 @@ function EnviosPanel(
                 <th style={{ textAlign: 'left' }}>Guía</th>
                 <th style={{ textAlign: 'left' }}>Tipo</th>
                 <th style={{ textAlign: 'left' }}>Cliente</th>
-                <th style={{ textAlign: 'left' }}>Producto</th>
-                <th style={{ textAlign: 'left' }}>Final</th>
+                <th style={{ textAlign: 'left' }}>Tipo producto</th>
+                <th style={{ textAlign: 'left' }}>Cantidad</th>
+                <th style={{ textAlign: 'left' }}>Precio base</th>
+                <th style={{ textAlign: 'left' }}>Descuento</th>
+                <th style={{ textAlign: 'left' }}>Precio final</th>
+                <th style={{ textAlign: 'left' }}>Detalle</th>
                 <th style={{ textAlign: 'left' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {items.map((e) => (
-                <tr key={e.id}>
-                  <td>{e.id}</td>
+                <tr key={e.id_envio}>
+                  <td>{e.id_envio}</td>
                   <td>{e.numero_guia}</td>
                   <td>{e.tipo_envio}</td>
-                  <td>{e.cliente_id}</td>
-                  <td>{e.producto_id}</td>
+                  <td>{e.id_cliente}</td>
+                  <td>{e.id_tipo_producto}</td>
+                  <td>{e.cantidad}</td>
+                  <td>{e.precio_base}</td>
+                  <td>{e.descuento}</td>
                   <td>{e.precio_final}</td>
                   <td>
-                    <button type="button" onClick={() => onEliminar(e.id)}>
+                    {e.tipo_envio === 'TERRESTRE'
+                      ? `Bodega ${e.id_bodega ?? '-'} / ${e.placa_vehiculo ?? '-'}`
+                      : `Puerto ${e.id_puerto ?? '-'} / ${e.numero_flota ?? '-'}`}
+                  </td>
+                  <td>
+                    <button type="button" onClick={() => onEliminar(e.id_envio)}>
                       Eliminar
                     </button>
                   </td>

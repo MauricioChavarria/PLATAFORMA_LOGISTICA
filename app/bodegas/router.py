@@ -27,9 +27,8 @@ def listar(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     q: str | None = Query(None, min_length=1),
-    pais: str | None = None,
 ) -> ListaBodegasDTO:
-    items, total = listar_bodegas(db, page=page, page_size=page_size, q=q, pais=pais)
+    items, total = listar_bodegas(db, page=page, page_size=page_size, q=q)
     return ListaBodegasDTO(
         page=page,
         page_size=page_size,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+import re
+from datetime import date
 from decimal import Decimal
 from typing import Literal
 
@@ -10,111 +11,95 @@ TipoEnvio = Literal["TERRESTRE", "MARITIMO"]
 
 
 class CrearEnvioDTO(BaseModel):
-    cliente_id: int
-    producto_id: int
+    id_cliente: int
+    id_tipo_producto: int
 
-    cantidad: int = Field(ge=1)
+    cantidad: int = Field(gt=0)
     fecha_registro: date
     fecha_entrega: date
-
     precio_base: Decimal = Field(ge=0)
-    descuento: Decimal = Field(ge=0)
+    numero_guia: str = Field(min_length=1, max_length=10)
 
-    numero_guia: str = Field(min_length=3, max_length=64)
     tipo_envio: TipoEnvio
 
     # Detalle terrestre
-    bodega_id: int | None = None
-    placa_vehiculo: str | None = Field(default=None, min_length=3, max_length=32)
+    placa_vehiculo: str | None = Field(default=None, min_length=6, max_length=6)
+    id_bodega: int | None = None
 
     # Detalle marítimo
-    puerto_id: int | None = None
-    numero_flota: str | None = Field(default=None, min_length=1, max_length=32)
-
-    @staticmethod
-    def _validar_terrestre(dto: "CrearEnvioDTO") -> None:
-        if dto.bodega_id is None or dto.placa_vehiculo is None:
-            raise ValueError("Para TERRESTRE se requiere bodega_id y placa_vehiculo")
-        if dto.puerto_id is not None or dto.numero_flota is not None:
-            raise ValueError("Campos marítimos no aplican para TERRESTRE")
-
-    @staticmethod
-    def _validar_maritimo(dto: "CrearEnvioDTO") -> None:
-        if dto.puerto_id is None or dto.numero_flota is None:
-            raise ValueError("Para MARITIMO se requiere puerto_id y numero_flota")
-        if dto.bodega_id is not None or dto.placa_vehiculo is not None:
-            raise ValueError("Campos terrestres no aplican para MARITIMO")
+    numero_flota: str | None = Field(default=None, min_length=8, max_length=8)
+    id_puerto: int | None = None
 
     @model_validator(mode="after")
-    def validar_detalle(self) -> "CrearEnvioDTO":
+    def validar(self) -> "CrearEnvioDTO":
         if self.fecha_entrega < self.fecha_registro:
             raise ValueError("fecha_entrega no puede ser anterior a fecha_registro")
-        if self.descuento > self.precio_base:
-            raise ValueError("descuento no puede ser mayor a precio_base")
 
         if self.tipo_envio == "TERRESTRE":
-            self._validar_terrestre(self)
+            if self.id_bodega is None or self.placa_vehiculo is None:
+                raise ValueError("Para TERRESTRE se requiere id_bodega y placa_vehiculo")
+            if self.id_puerto is not None or self.numero_flota is not None:
+                raise ValueError("Campos marítimos no aplican para TERRESTRE")
+            if not re.fullmatch(r"^[A-Z]{3}\d{3}$", self.placa_vehiculo):
+                raise ValueError("placa_vehiculo inválida (ej: ABC123)")
             return self
 
-        self._validar_maritimo(self)
+        if self.id_puerto is None or self.numero_flota is None:
+            raise ValueError("Para MARITIMO se requiere id_puerto y numero_flota")
+        if self.id_bodega is not None or self.placa_vehiculo is not None:
+            raise ValueError("Campos terrestres no aplican para MARITIMO")
+        if not re.fullmatch(r"^[A-Z]{3}\d{4}[A-Z]$", self.numero_flota):
+            raise ValueError("numero_flota inválido (ej: ABC1234Z)")
         return self
 
 
 class ActualizarEnvioDTO(BaseModel):
-    cantidad: int | None = Field(default=None, ge=1)
+    id_cliente: int | None = None
+    id_tipo_producto: int | None = None
+    cantidad: int | None = Field(default=None, gt=0)
     fecha_registro: date | None = None
     fecha_entrega: date | None = None
-
     precio_base: Decimal | None = Field(default=None, ge=0)
-    descuento: Decimal | None = Field(default=None, ge=0)
-
-    numero_guia: str | None = Field(default=None, min_length=3, max_length=64)
-    tipo_envio: TipoEnvio | None = None
+    numero_guia: str | None = Field(default=None, min_length=1, max_length=10)
 
     # Detalle terrestre
-    bodega_id: int | None = None
-    placa_vehiculo: str | None = Field(default=None, min_length=3, max_length=32)
+    placa_vehiculo: str | None = Field(default=None, min_length=6, max_length=6)
+    id_bodega: int | None = None
 
     # Detalle marítimo
-    puerto_id: int | None = None
-    numero_flota: str | None = Field(default=None, min_length=1, max_length=32)
+    numero_flota: str | None = Field(default=None, min_length=8, max_length=8)
+    id_puerto: int | None = None
 
     @model_validator(mode="after")
-    def validar_fechas_y_descuento(self) -> "ActualizarEnvioDTO":
-        if self.precio_base is not None and self.descuento is not None:
-            if self.descuento > self.precio_base:
-                raise ValueError("descuento no puede ser mayor a precio_base")
-
+    def validar_fechas(self) -> "ActualizarEnvioDTO":
         if self.fecha_registro is not None and self.fecha_entrega is not None:
             if self.fecha_entrega < self.fecha_registro:
                 raise ValueError("fecha_entrega no puede ser anterior a fecha_registro")
-
+        if self.placa_vehiculo is not None and not re.fullmatch(r"^[A-Z]{3}\d{3}$", self.placa_vehiculo):
+            raise ValueError("placa_vehiculo inválida (ej: ABC123)")
+        if self.numero_flota is not None and not re.fullmatch(r"^[A-Z]{3}\d{4}[A-Z]$", self.numero_flota):
+            raise ValueError("numero_flota inválido (ej: ABC1234Z)")
         return self
 
 
 class EnvioDTO(BaseModel):
-    id: int
-    cliente_id: int
-    producto_id: int
-
+    id_envio: int
+    id_cliente: int
+    id_tipo_producto: int
     cantidad: int
     fecha_registro: date
     fecha_entrega: date
-
     precio_base: Decimal
     descuento: Decimal
     precio_final: Decimal
-
     numero_guia: str
     tipo_envio: TipoEnvio
 
-    bodega_id: int | None = None
+    id_bodega: int | None = None
     placa_vehiculo: str | None = None
 
-    puerto_id: int | None = None
+    id_puerto: int | None = None
     numero_flota: str | None = None
-
-    creado_en: datetime
 
 
 class ListaEnviosDTO(BaseModel):

@@ -7,7 +7,7 @@ def _token(client: TestClient) -> str:
     return resp.json()["access_token"]
 
 
-def test_crud_clientes_soft_delete_filtros_paginacion(client: TestClient) -> None:
+def test_crud_clientes_filtros_paginacion(client: TestClient) -> None:
     token = _token(client)
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -15,10 +15,10 @@ def test_crud_clientes_soft_delete_filtros_paginacion(client: TestClient) -> Non
     r = client.post(
         "/api/v1/clientes",
         headers=headers,
-        json={"nombre": "Mauricio", "email": "mauricio@test.com", "documento": "CC123"},
+        json={"nombre": "Mauricio", "email": "mauricio@test.com", "telefono": "3001234567"},
     )
     assert r.status_code == 200
-    cliente_id = r.json()["id"]
+    cliente_id = r.json()["id_cliente"]
 
     # get
     r = client.get(f"/api/v1/clientes/{cliente_id}", headers=headers)
@@ -41,7 +41,7 @@ def test_crud_clientes_soft_delete_filtros_paginacion(client: TestClient) -> Non
     assert r.status_code == 200
     assert r.json()["total"] == 0
 
-    # soft delete
+    # delete físico
     r = client.delete(f"/api/v1/clientes/{cliente_id}", headers=headers)
     assert r.status_code == 200
 

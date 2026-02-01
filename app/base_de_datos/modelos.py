@@ -6,7 +6,7 @@ Importar este módulo garantiza que todos los modelos queden registrados en
 
 # Importaciones intencionales para registrar modelos
 from app.clientes.models import Cliente  # noqa: F401
-from app.productos.models import Producto  # noqa: F401
+from app.tipos_producto.models import TipoProducto  # noqa: F401
 from app.bodegas.models import Bodega  # noqa: F401
 from app.puertos.models import Puerto  # noqa: F401
-from app.envios.base.models import EnvioBase, EnvioMaritimo, EnvioTerrestre  # noqa: F401
+from app.envios.base.models import Envio, EnvioMaritimo, EnvioTerrestre  # noqa: F401

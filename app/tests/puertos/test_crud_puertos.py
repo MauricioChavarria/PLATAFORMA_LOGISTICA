@@ -14,10 +14,10 @@ def test_crud_puertos_soft_delete_filtros_paginacion(client: TestClient) -> None
     r = client.post(
         "/api/v1/puertos",
         headers=headers,
-        json={"nombre": "Cartagena", "pais": "CO"},
+        json={"nombre": "Cartagena", "ciudad": "Cartagena"},
     )
     assert r.status_code == 200
-    puerto_id = r.json()["id"]
+    puerto_id = r.json()["id_puerto"]
 
     r = client.get(f"/api/v1/puertos/{puerto_id}", headers=headers)
     assert r.status_code == 200
@@ -28,10 +28,6 @@ def test_crud_puertos_soft_delete_filtros_paginacion(client: TestClient) -> None
     assert r.json()["total"] == 1
 
     r = client.get("/api/v1/puertos?q=Cart", headers=headers)
-    assert r.status_code == 200
-    assert r.json()["total"] == 1
-
-    r = client.get("/api/v1/puertos?pais=CO", headers=headers)
     assert r.status_code == 200
     assert r.json()["total"] == 1
 

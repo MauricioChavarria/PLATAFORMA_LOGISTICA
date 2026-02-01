@@ -1,23 +1,20 @@
-from datetime import datetime
-
 from pydantic import BaseModel, Field
 
 
 class CrearPuertoDTO(BaseModel):
-    nombre: str = Field(min_length=2, max_length=160)
-    pais: str = Field(min_length=2, max_length=120)
+    nombre: str = Field(min_length=1, max_length=100)
+    ciudad: str | None = Field(default=None, max_length=100)
 
 
 class ActualizarPuertoDTO(BaseModel):
-    nombre: str | None = Field(default=None, min_length=2, max_length=160)
-    pais: str | None = Field(default=None, min_length=2, max_length=120)
+    nombre: str | None = Field(default=None, min_length=1, max_length=100)
+    ciudad: str | None = Field(default=None, max_length=100)
 
 
 class PuertoDTO(BaseModel):
-    id: int
+    id_puerto: int
     nombre: str
-    pais: str
-    creado_en: datetime
+    ciudad: str | None = None
 
 
 class ListaPuertosDTO(BaseModel):
