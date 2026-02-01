@@ -5,7 +5,7 @@ from app.clientes.models import Cliente
 
 
 def _base_query() -> Select[tuple[Cliente]]:
-    return select(Cliente)
+    return select(Cliente).where(Cliente.activo.is_(True))
 
 
 def crear(db: Session, *, nombre: str, email: str | None = None, telefono: str | None = None) -> Cliente:
@@ -65,5 +65,6 @@ def actualizar(
 
 
 def eliminar(db: Session, cliente: Cliente) -> None:
-    db.delete(cliente)
+    cliente.activo = False
+    db.add(cliente)
     db.commit()

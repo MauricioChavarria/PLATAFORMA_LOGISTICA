@@ -88,6 +88,9 @@ def test_no_elimina_bodega_con_envios_asociados(client: TestClient) -> None:
     )
     assert r.status_code == 200
 
-    # Intentar eliminar bodega debe dar 409 (no 500)
+    # Soft delete: debe permitir eliminar aunque tenga envíos asociados
     r = client.delete(f"/api/v1/bodegas/{bodega_id}", headers=headers)
-    assert r.status_code == 409
+    assert r.status_code == 200
+
+    r = client.get(f"/api/v1/bodegas/{bodega_id}", headers=headers)
+    assert r.status_code == 404

@@ -5,7 +5,7 @@ from app.puertos.models import Puerto
 
 
 def _base_query() -> Select[tuple[Puerto]]:
-    return select(Puerto)
+    return select(Puerto).where(Puerto.activo.is_(True))
 
 
 def crear(db: Session, *, nombre: str, ciudad: str | None) -> Puerto:
@@ -60,5 +60,6 @@ def actualizar(
 
 
 def eliminar(db: Session, puerto: Puerto) -> None:
-    db.delete(puerto)
+    puerto.activo = False
+    db.add(puerto)
     db.commit()

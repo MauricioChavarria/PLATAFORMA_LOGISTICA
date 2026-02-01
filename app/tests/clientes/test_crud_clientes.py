@@ -101,6 +101,10 @@ def test_no_elimina_cliente_con_envios_asociados(client: TestClient) -> None:
     )
     assert r.status_code == 200
 
-    # Intentar eliminar cliente debe dar 409 (no 500)
+    # Soft delete: debe permitir eliminar aunque tenga envíos asociados
     r = client.delete(f"/api/v1/clientes/{cliente_id}", headers=headers)
-    assert r.status_code == 409
+    assert r.status_code == 200
+
+    # Debe quedar oculto en list/get
+    r = client.get(f"/api/v1/clientes/{cliente_id}", headers=headers)
+    assert r.status_code == 404

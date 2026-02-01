@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, String
+from sqlalchemy import Boolean, Integer, String, true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.base_de_datos.base import Base
@@ -10,3 +10,4 @@ class Puerto(Base):
     id_puerto: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     nombre: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     ciudad: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default=true())

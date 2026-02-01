@@ -1,11 +1,8 @@
-from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.clientes import repository
 from app.clientes.schemas import ActualizarClienteDTO, CrearClienteDTO
-from app.comun.excepciones import conflicto, no_encontrado
-from app.envios.base.models import Envio
+from app.comun.excepciones import no_encontrado
 
 
 def crear_cliente(db: Session, dto: CrearClienteDTO):
@@ -54,13 +51,4 @@ def actualizar_cliente(db: Session, cliente_id: int, dto: ActualizarClienteDTO):
 
 def eliminar_cliente(db: Session, cliente_id: int) -> None:
     obj = obtener_cliente(db, cliente_id)
-
-    total_envios = db.scalar(select(func.count()).select_from(Envio).where(Envio.id_cliente == cliente_id)) or 0
-    if int(total_envios) > 0:
-        raise conflicto("No se puede eliminar el cliente: tiene envíos asociados")
-
-    try:
-        repository.eliminar(db, obj)
-    except IntegrityError as exc:
-        db.rollback()
-        raise conflicto("No se puede eliminar el cliente: tiene envíos asociados") from exc
+    repository.eliminar(db, obj)

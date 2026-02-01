@@ -5,7 +5,7 @@ from app.bodegas.models import Bodega
 
 
 def _base_query() -> Select[tuple[Bodega]]:
-    return select(Bodega)
+    return select(Bodega).where(Bodega.activo.is_(True))
 
 
 def crear(db: Session, *, nombre: str, direccion: str | None) -> Bodega:
@@ -57,5 +57,6 @@ def actualizar(
 
 
 def eliminar(db: Session, bodega: Bodega) -> None:
-    db.delete(bodega)
+    bodega.activo = False
+    db.add(bodega)
     db.commit()
