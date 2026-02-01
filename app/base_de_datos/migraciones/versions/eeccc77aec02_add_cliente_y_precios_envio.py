@@ -39,25 +39,33 @@ def upgrade() -> None:
 
     # Migración de datos: si hay envíos existentes, crear un cliente por defecto y asignarlo.
     bind = op.get_bind()
-    has_envios = bind.execute(sa.text("SELECT 1 FROM envio LIMIT 1")).first() is not None
-    if has_envios:
-        default_cliente_id = bind.execute(
-            sa.text(
-                "INSERT INTO cliente (nombre, email, telefono) "
-                "VALUES (:nombre, :email, :telefono) RETURNING id_cliente"
-            ),
-            {"nombre": "Cliente migrado", "email": None, "telefono": None},
-        ).scalar_one()
-        bind.execute(sa.text("UPDATE envio SET id_cliente = :id_cliente"), {"id_cliente": default_cliente_id})
+    # En modo offline (alembic --sql) no hay conexión; omitimos migración de datos.
+    if bind is not None:
+        has_envios = False
+        res = bind.execute(sa.text("SELECT 1 FROM envio LIMIT 1"))
+        if res is not None:
+            has_envios = res.first() is not None
 
-    # Convertir precio_envio -> precio_base/descuento/precio_final
-    bind.execute(
-        sa.text(
-            "UPDATE envio "
-            "SET precio_base = precio_envio, descuento = 0, precio_final = precio_envio "
-            "WHERE precio_base IS NULL AND precio_final IS NULL"
+        if has_envios:
+            res_ins = bind.execute(
+                sa.text(
+                    "INSERT INTO cliente (nombre, email, telefono) "
+                    "VALUES (:nombre, :email, :telefono) RETURNING id_cliente"
+                ),
+                {"nombre": "Cliente migrado", "email": None, "telefono": None},
+            )
+            if res_ins is not None:
+                default_cliente_id = res_ins.scalar_one()
+                bind.execute(sa.text("UPDATE envio SET id_cliente = :id_cliente"), {"id_cliente": default_cliente_id})
+
+        # Convertir precio_envio -> precio_base/descuento/precio_final
+        bind.execute(
+            sa.text(
+                "UPDATE envio "
+                "SET precio_base = precio_envio, descuento = 0, precio_final = precio_envio "
+                "WHERE precio_base IS NULL AND precio_final IS NULL"
+            )
         )
-    )
 
     # Asegurar NOT NULL una vez migrados los datos
     op.alter_column("envio", "id_cliente", existing_type=sa.Integer(), nullable=False)
@@ -108,7 +116,8 @@ def downgrade() -> None:
         sa.Column("precio_envio", sa.Numeric(precision=10, scale=2), nullable=True),
     )
     bind = op.get_bind()
-    bind.execute(sa.text("UPDATE envio SET precio_envio = precio_final WHERE precio_envio IS NULL"))
+    if bind is not None:
+        bind.execute(sa.text("UPDATE envio SET precio_envio = precio_final WHERE precio_envio IS NULL"))
     op.alter_column(
         "envio",
         "precio_envio",
