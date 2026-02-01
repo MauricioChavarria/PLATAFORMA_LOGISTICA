@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type SubmitEvent } from 'react'
 import './App.css'
 
 import {
@@ -38,40 +38,44 @@ function App() {
 
   const autorizado = useMemo(() => token.trim().length > 0, [token])
 
-  async function onLogin(e: React.FormEvent) {
+  const onLogin = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setMensaje('')
-    setCargando(true)
-    try {
-      const resp = await login(usuario, contrasena)
-      guardarToken(resp.access_token)
-      setToken(resp.access_token)
-      setMensaje('Login OK. Token guardado.')
-    } catch (err: any) {
-      setMensaje(err?.message ?? 'Error de login')
-    } finally {
-      setCargando(false)
-    }
+    void (async () => {
+      setMensaje('')
+      setCargando(true)
+      try {
+        const resp = await login(usuario, contrasena)
+        guardarToken(resp.access_token)
+        setToken(resp.access_token)
+        setMensaje('Login OK. Token guardado.')
+      } catch (err: any) {
+        setMensaje(err?.message ?? 'Error de login')
+      } finally {
+        setCargando(false)
+      }
+    })()
   }
 
-  async function onCotizar(e: React.FormEvent) {
+  const onCotizar = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setMensaje('')
-    setCargando(true)
-    try {
-      if (!autorizado) throw new Error('Primero inicia sesión (token Bearer).')
+    void (async () => {
+      setMensaje('')
+      setCargando(true)
+      try {
+        if (!autorizado) throw new Error('Primero inicia sesión (token Bearer).')
 
-      const resp =
-        modo === 'terrestre'
-          ? await cotizarTerrestre(token, formTerrestre)
-          : await cotizarMaritimo(token, formMaritimo)
+        const resp =
+          modo === 'terrestre'
+            ? await cotizarTerrestre(token, formTerrestre)
+            : await cotizarMaritimo(token, formMaritimo)
 
-      setMensaje(`Cotización OK:\n${JSON.stringify(resp, null, 2)}`)
-    } catch (err: any) {
-      setMensaje(err?.message ?? 'Error al cotizar')
-    } finally {
-      setCargando(false)
-    }
+        setMensaje(`Cotización OK:\n${JSON.stringify(resp, null, 2)}`)
+      } catch (err: any) {
+        setMensaje(err?.message ?? 'Error al cotizar')
+      } finally {
+        setCargando(false)
+      }
+    })()
   }
 
   function onLogout() {
@@ -92,7 +96,7 @@ function App() {
 
         <form onSubmit={onLogin} style={{ display: 'grid', gap: 8, maxWidth: 420 }}>
           <label>
-            Usuario
+            <span>Usuario</span>
             <input
               value={usuario}
               onChange={(e) => setUsuario(e.target.value)}
@@ -102,7 +106,7 @@ function App() {
           </label>
 
           <label>
-            Contraseña
+            <span>Contraseña</span>
             <input
               value={contrasena}
               onChange={(e) => setContrasena(e.target.value)}
@@ -132,14 +136,16 @@ function App() {
 
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
           <label>
-            Tipo
+            <span>Tipo</span>
             <select value={modo} onChange={(e) => setModo(e.target.value as any)}>
               <option value="terrestre">Terrestre</option>
               <option value="maritimo">Marítimo</option>
             </select>
           </label>
           <small>
-            Endpoints: <code>/api/v1/envios/terrestres/cotizar</code> /{' '}
+            <span>Endpoints: </span>
+            <code>/api/v1/envios/terrestres/cotizar</code>
+            <span> / </span>
             <code>/api/v1/envios/maritimos/cotizar</code>
           </small>
         </div>
@@ -148,14 +154,14 @@ function App() {
           {modo === 'terrestre' ? (
             <>
               <label>
-                Guía
+                <span>Guía</span>
                 <input
                   value={formTerrestre.guia}
                   onChange={(e) => setFormTerrestre({ ...formTerrestre, guia: e.target.value })}
                 />
               </label>
               <label>
-                Cliente ID
+                <span>Cliente ID</span>
                 <input
                   type="number"
                   value={formTerrestre.cliente_id}
@@ -165,7 +171,7 @@ function App() {
                 />
               </label>
               <label>
-                Placa vehículo
+                <span>Placa vehículo</span>
                 <input
                   value={formTerrestre.placa_vehiculo}
                   onChange={(e) =>
@@ -174,7 +180,7 @@ function App() {
                 />
               </label>
               <label>
-                Código flota
+                <span>Código flota</span>
                 <input
                   value={formTerrestre.codigo_flota}
                   onChange={(e) =>
@@ -183,7 +189,7 @@ function App() {
                 />
               </label>
               <label>
-                Cantidad
+                <span>Cantidad</span>
                 <input
                   type="number"
                   value={formTerrestre.cantidad}
@@ -196,14 +202,14 @@ function App() {
           ) : (
             <>
               <label>
-                Guía
+                <span>Guía</span>
                 <input
                   value={formMaritimo.guia}
                   onChange={(e) => setFormMaritimo({ ...formMaritimo, guia: e.target.value })}
                 />
               </label>
               <label>
-                Cliente ID
+                <span>Cliente ID</span>
                 <input
                   type="number"
                   value={formMaritimo.cliente_id}
@@ -213,7 +219,7 @@ function App() {
                 />
               </label>
               <label>
-                Puerto origen ID
+                <span>Puerto origen ID</span>
                 <input
                   type="number"
                   value={formMaritimo.puerto_origen_id}
@@ -223,7 +229,7 @@ function App() {
                 />
               </label>
               <label>
-                Puerto destino ID
+                <span>Puerto destino ID</span>
                 <input
                   type="number"
                   value={formMaritimo.puerto_destino_id}
@@ -233,7 +239,7 @@ function App() {
                 />
               </label>
               <label>
-                Cantidad
+                <span>Cantidad</span>
                 <input
                   type="number"
                   value={formMaritimo.cantidad}

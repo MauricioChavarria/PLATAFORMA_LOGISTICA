@@ -22,12 +22,16 @@ export type CotizacionMaritimaRequest = {
 const API_BASE = '/api/v1'
 
 async function requestJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  if (init?.headers) {
+    Object.assign(headers, init.headers as any)
+  }
+
   const resp = await fetch(input, {
     ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
+    headers,
   })
 
   const text = await resp.text()

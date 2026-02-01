@@ -1,0 +1,5 @@
+Migraciones de base de datos (Alembic).
+
+Comandos típicos:
+- alembic revision --autogenerate -m "mensaje"
+- alembic upgrade head

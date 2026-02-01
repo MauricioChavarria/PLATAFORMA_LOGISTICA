@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -42,4 +43,4 @@ def test_cotizar_terrestre_ok() -> None:
         },
     )
     assert resp.status_code == 200
-    assert resp.json()["descuento"] == 0.05
+    assert resp.json()["descuento"] == pytest.approx(0.05)
