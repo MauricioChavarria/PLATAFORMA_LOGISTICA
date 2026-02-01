@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.autenticacion.dependencies import obtener_usuario_actual
+from app.autenticacion.dependencies import obtener_admin_actual, obtener_usuario_actual
 from app.comun.dependencias import DBSession
 from app.envios.schemas import ActualizarEnvioDTO, CrearEnvioDTO, EnvioDTO, ListaEnviosDTO, TipoEnvio
 from app.envios.service import actualizar_envio, crear_envio, eliminar_envio, listar_envios, obtener_envio
@@ -126,6 +126,6 @@ def actualizar(envio_id: int, dto: ActualizarEnvioDTO, db: DBSession, _: dict = 
 
 
 @router.delete("/envios/{envio_id}")
-def eliminar(envio_id: int, db: DBSession, _: dict = Depends(obtener_usuario_actual)) -> dict:
+def eliminar(envio_id: int, db: DBSession, _: dict = Depends(obtener_admin_actual)) -> dict:
     eliminar_envio(db, envio_id)
     return {"status": "ok"}

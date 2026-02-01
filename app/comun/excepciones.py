@@ -15,3 +15,7 @@ def no_encontrado(detalle: str = "No encontrado") -> HTTPException:
 
 def conflicto(detalle: str = "Conflicto") -> HTTPException:
     return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detalle)
+
+
+def error_servidor(detalle: str = "Error interno del servidor") -> HTTPException:
+    return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detalle)

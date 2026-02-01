@@ -40,6 +40,15 @@ Abre `http://localhost:5173/`.
 
 - `GET /api/v1/health`
 - `POST /api/v1/auth/token` (demo: `admin`/`admin`)
+- `POST /api/v1/auth/register` (registro de usuario)
+
+Reglas de autorización (bonus):
+
+- `admin`: `admin`/`admin`
+- `user`: usuarios registrados vía `/auth/register`
+- Operaciones admin-only:
+  - `POST/PATCH/DELETE`: `tipos-producto`, `bodegas`, `puertos`, `productos`
+  - `DELETE`: `clientes`, `envios`
 
 CRUD principal (todos requieren Bearer):
 
@@ -70,7 +79,7 @@ Documentación API (Swagger):
 
 - Estructura y convención de ramas: `docs/GIT_FLOW.md`
 
-## Estructura (carpetas en español)
+## Estructura
 
 - `app/autenticacion`: JWT y dependencias
 - `app/envios`: módulos de envíos (base / terrestre / marítimo)

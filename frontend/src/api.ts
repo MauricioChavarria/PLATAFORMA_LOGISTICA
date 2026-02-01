@@ -3,6 +3,22 @@ export type TokenResponse = {
   token_type: 'bearer'
 }
 
+export type UsuarioDTO = {
+  id_usuario: number
+  username: string
+  role: string
+}
+
+export type RegistrarUsuarioDTO = {
+  username: string
+  password: string
+}
+
+export type MeResponse = {
+  sub: string
+  role: string
+}
+
 export type PaginacionRespuesta<T> = {
   page: number
   page_size: number
@@ -229,6 +245,20 @@ export async function login(username: string, password: string): Promise<TokenRe
   return requestJson<TokenResponse>(`${API_BASE}/auth/token`, {
     method: 'POST',
     body: JSON.stringify({ username, password }),
+  })
+}
+
+export async function register(payload: RegistrarUsuarioDTO): Promise<UsuarioDTO> {
+  return requestJson<UsuarioDTO>(`${API_BASE}/auth/register`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function me(token: string): Promise<MeResponse> {
+  return requestJson<MeResponse>(`${API_BASE}/auth/me`, {
+    method: 'GET',
+    headers: authHeaders(token),
   })
 }
 
