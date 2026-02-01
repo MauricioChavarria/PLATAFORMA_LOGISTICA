@@ -19,6 +19,16 @@ API REST (FastAPI) para gestionar envíos terrestres y marítimos, con monolito 
 
 - `uvicorn app.main:app --reload`
 
+## Frontend (React + Vite)
+
+En otra terminal:
+
+- `cd frontend`
+- `npm install`
+- `npm run dev`
+
+Abre `http://localhost:5173/`.
+
 ## Endpoints base
 
 - `GET /api/v1/health`
