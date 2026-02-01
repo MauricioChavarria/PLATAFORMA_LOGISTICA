@@ -18,6 +18,8 @@ import {
   listarPuertos,
   listarTiposProducto,
   login,
+  me,
+  register,
   type CrearBodegaDTO,
   type CrearClienteDTO,
   type CrearEnvioDTO,
@@ -26,6 +28,7 @@ import {
   type EnvioDTO,
   type BodegaDTO,
   type ClienteDTO,
+  type MeResponse,
   type PuertoDTO,
   type TipoEnvio,
   type TipoProductoDTO,
@@ -39,12 +42,39 @@ function App() {
   const [mensaje, setMensaje] = useState<string>('')
   const [cargando, setCargando] = useState<boolean>(false)
 
+  const [meInfo, setMeInfo] = useState<MeResponse | null>(null)
+
   const [vista, setVista] = useState<Vista>('tipos_producto')
 
+  const [modoAuth, setModoAuth] = useState<'login' | 'register'>('login')
   const [usuario, setUsuario] = useState('admin')
   const [contrasena, setContrasena] = useState('admin')
+  const [contrasena2, setContrasena2] = useState('')
 
   const autorizado = useMemo(() => token.trim().length > 0, [token])
+  const esAdmin = useMemo(() => meInfo?.role === 'admin', [meInfo])
+  const submitLabel = useMemo(() => (modoAuth === 'login' ? 'Iniciar sesión' : 'Crear cuenta'), [modoAuth])
+
+  useEffect(() => {
+    if (!token.trim()) {
+      setMeInfo(null)
+      return
+    }
+
+    void (async () => {
+      try {
+        const info = await me(token)
+        setMeInfo(info)
+      } catch (err: any) {
+        // token inválido/expirado
+        limpiarToken()
+        setToken('')
+        setMeInfo(null)
+        setMensaje(err?.message ?? 'Token inválido. Vuelve a iniciar sesión.')
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
 
   const onLogin = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -64,9 +94,49 @@ function App() {
     })()
   }
 
+  const onRegister = (e: SubmitEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    void (async () => {
+      setMensaje('')
+
+      if (usuario.trim().toLowerCase() === 'admin') {
+        setMensaje('El usuario "admin" está reservado (demo). Usa otro username.')
+        return
+      }
+      if (!usuario.trim()) {
+        setMensaje('Username requerido')
+        return
+      }
+      if (!contrasena.trim()) {
+        setMensaje('Contraseña requerida')
+        return
+      }
+      if (contrasena !== contrasena2) {
+        setMensaje('Las contraseñas no coinciden')
+        return
+      }
+
+      setCargando(true)
+      try {
+        await register({ username: usuario.trim(), password: contrasena })
+        const resp = await login(usuario, contrasena)
+        guardarToken(resp.access_token)
+        setToken(resp.access_token)
+        setMensaje('Registro OK. Sesión iniciada.')
+        setModoAuth('login')
+        setContrasena2('')
+      } catch (err: any) {
+        setMensaje(err?.message ?? 'Error registrando usuario')
+      } finally {
+        setCargando(false)
+      }
+    })()
+  }
+
   function onLogout() {
     limpiarToken()
     setToken('')
+    setMeInfo(null)
     setMensaje('Sesión cerrada.')
     setVista('tipos_producto')
   }
@@ -103,7 +173,27 @@ function App() {
       <div className="card" style={{ textAlign: 'left' }}>
         <h2>Autenticación</h2>
 
-        <form onSubmit={onLogin} style={{ display: 'grid', gap: 8, maxWidth: 420 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+          <button
+            type="button"
+            onClick={() => setModoAuth('login')}
+            disabled={cargando || modoAuth === 'login'}
+          >
+            Login
+          </button>
+          <button
+            type="button"
+            onClick={() => setModoAuth('register')}
+            disabled={cargando || modoAuth === 'register'}
+          >
+            Registro
+          </button>
+        </div>
+
+        <form
+          onSubmit={modoAuth === 'login' ? onLogin : onRegister}
+          style={{ display: 'grid', gap: 8, maxWidth: 420 }}
+        >
           <label>
             <span>Usuario</span>
             <input
@@ -121,13 +211,25 @@ function App() {
               onChange={(e) => setContrasena(e.target.value)}
               placeholder="admin"
               type="password"
-              autoComplete="current-password"
+              autoComplete={modoAuth === 'login' ? 'current-password' : 'new-password'}
             />
           </label>
 
+          {modoAuth === 'register' ? (
+            <label>
+              <span>Confirmar contraseña</span>
+              <input
+                value={contrasena2}
+                onChange={(e) => setContrasena2(e.target.value)}
+                type="password"
+                autoComplete="new-password"
+              />
+            </label>
+          ) : null}
+
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <button type="submit" disabled={cargando}>
-              {cargando ? 'Cargando...' : 'Iniciar sesión'}
+              {cargando ? 'Cargando...' : submitLabel}
             </button>
             <button type="button" onClick={onLogout} disabled={!autorizado || cargando}>
               Cerrar sesión
@@ -137,27 +239,30 @@ function App() {
           <small>
             Token: {autorizado ? `${token.slice(0, 18)}...` : '(sin token)'}
           </small>
+          <small>
+            Usuario actual: {meInfo ? `${meInfo.sub} (${meInfo.role})` : '(desconocido)'}
+          </small>
         </form>
       </div>
 
       {vista === 'tipos_producto' ? (
-        <TiposProductoPanel token={token} setMensaje={setMensaje} setCargando={setCargando} />
+        <TiposProductoPanel token={token} esAdmin={esAdmin} setMensaje={setMensaje} setCargando={setCargando} />
       ) : null}
 
       {vista === 'clientes' ? (
-        <ClientesPanel token={token} setMensaje={setMensaje} setCargando={setCargando} />
+        <ClientesPanel token={token} esAdmin={esAdmin} setMensaje={setMensaje} setCargando={setCargando} />
       ) : null}
 
       {vista === 'bodegas' ? (
-        <BodegasPanel token={token} setMensaje={setMensaje} setCargando={setCargando} />
+        <BodegasPanel token={token} esAdmin={esAdmin} setMensaje={setMensaje} setCargando={setCargando} />
       ) : null}
 
       {vista === 'puertos' ? (
-        <PuertosPanel token={token} setMensaje={setMensaje} setCargando={setCargando} />
+        <PuertosPanel token={token} esAdmin={esAdmin} setMensaje={setMensaje} setCargando={setCargando} />
       ) : null}
 
       {vista === 'envios' ? (
-        <EnviosPanel token={token} setMensaje={setMensaje} setCargando={setCargando} />
+        <EnviosPanel token={token} esAdmin={esAdmin} setMensaje={setMensaje} setCargando={setCargando} />
       ) : null}
 
       {mensaje ? (
@@ -174,11 +279,12 @@ export default App
 function TiposProductoPanel(
   props: Readonly<{
     token: string
+    esAdmin: boolean
     setMensaje: (s: string) => void
     setCargando: (b: boolean) => void
   }>,
 ) {
-  const { token, setMensaje, setCargando } = props
+  const { token, esAdmin, setMensaje, setCargando } = props
 
   const [q, setQ] = useState<string>('')
   const [page, setPage] = useState<number>(1)
@@ -207,6 +313,10 @@ function TiposProductoPanel(
   const onCrear = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     void (async () => {
+      if (!esAdmin) {
+        setMensaje('Se requiere rol admin')
+        return
+      }
       setMensaje('')
       setCargando(true)
       try {
@@ -223,6 +333,10 @@ function TiposProductoPanel(
 
   const onEliminar = (id: number) => {
     void (async () => {
+      if (!esAdmin) {
+        setMensaje('Se requiere rol admin')
+        return
+      }
       setMensaje('')
       setCargando(true)
       try {
@@ -240,13 +354,17 @@ function TiposProductoPanel(
     <div className="card" style={{ textAlign: 'left' }}>
       <h2>Tipos de producto</h2>
 
-      <form onSubmit={onCrear} style={{ display: 'grid', gap: 8, maxWidth: 520, marginBottom: 12 }}>
-        <label>
-          <span>Nombre</span>
-          <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} />
-        </label>
-        <button type="submit">Crear tipo</button>
-      </form>
+      {esAdmin ? (
+        <form onSubmit={onCrear} style={{ display: 'grid', gap: 8, maxWidth: 520, marginBottom: 12 }}>
+          <label>
+            <span>Nombre</span>
+            <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} />
+          </label>
+          <button type="submit">Crear tipo</button>
+        </form>
+      ) : (
+        <small>Solo admin puede crear/eliminar tipos de producto.</small>
+      )}
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <label>
@@ -282,7 +400,7 @@ function TiposProductoPanel(
               <tr>
                 <th style={{ textAlign: 'left' }}>ID</th>
                 <th style={{ textAlign: 'left' }}>Nombre</th>
-                <th style={{ textAlign: 'left' }}>Acciones</th>
+                {esAdmin ? <th style={{ textAlign: 'left' }}>Acciones</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -290,11 +408,13 @@ function TiposProductoPanel(
                 <tr key={t.id_tipo_producto}>
                   <td>{t.id_tipo_producto}</td>
                   <td>{t.nombre}</td>
-                  <td>
-                    <button type="button" onClick={() => onEliminar(t.id_tipo_producto)}>
-                      Eliminar
-                    </button>
-                  </td>
+                  {esAdmin ? (
+                    <td>
+                      <button type="button" onClick={() => onEliminar(t.id_tipo_producto)}>
+                        Eliminar
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -308,11 +428,12 @@ function TiposProductoPanel(
 function BodegasPanel(
   props: Readonly<{
     token: string
+    esAdmin: boolean
     setMensaje: (s: string) => void
     setCargando: (b: boolean) => void
   }>,
 ) {
-  const { token, setMensaje, setCargando } = props
+  const { token, esAdmin, setMensaje, setCargando } = props
 
   const [q, setQ] = useState<string>('')
   const [page, setPage] = useState<number>(1)
@@ -345,6 +466,10 @@ function BodegasPanel(
   const onCrear = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     void (async () => {
+      if (!esAdmin) {
+        setMensaje('Se requiere rol admin')
+        return
+      }
       setMensaje('')
       setCargando(true)
       try {
@@ -361,6 +486,10 @@ function BodegasPanel(
 
   const onEliminar = (id: number) => {
     void (async () => {
+      if (!esAdmin) {
+        setMensaje('Se requiere rol admin')
+        return
+      }
       setMensaje('')
       setCargando(true)
       try {
@@ -378,20 +507,24 @@ function BodegasPanel(
     <div className="card" style={{ textAlign: 'left' }}>
       <h2>Bodegas</h2>
 
-      <form onSubmit={onCrear} style={{ display: 'grid', gap: 8, maxWidth: 520, marginBottom: 12 }}>
-        <label>
-          <span>Nombre</span>
-          <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} />
-        </label>
-        <label>
-          <span>Dirección</span>
-          <input
-            value={nuevo.direccion ?? ''}
-            onChange={(e) => setNuevo({ ...nuevo, direccion: e.target.value })}
-          />
-        </label>
-        <button type="submit">Crear bodega</button>
-      </form>
+      {esAdmin ? (
+        <form onSubmit={onCrear} style={{ display: 'grid', gap: 8, maxWidth: 520, marginBottom: 12 }}>
+          <label>
+            <span>Nombre</span>
+            <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} />
+          </label>
+          <label>
+            <span>Dirección</span>
+            <input
+              value={nuevo.direccion ?? ''}
+              onChange={(e) => setNuevo({ ...nuevo, direccion: e.target.value })}
+            />
+          </label>
+          <button type="submit">Crear bodega</button>
+        </form>
+      ) : (
+        <small>Solo admin puede crear/eliminar bodegas.</small>
+      )}
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <label>
@@ -428,7 +561,7 @@ function BodegasPanel(
                 <th style={{ textAlign: 'left' }}>ID</th>
                 <th style={{ textAlign: 'left' }}>Nombre</th>
                 <th style={{ textAlign: 'left' }}>Dirección</th>
-                <th style={{ textAlign: 'left' }}>Acciones</th>
+                {esAdmin ? <th style={{ textAlign: 'left' }}>Acciones</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -437,11 +570,13 @@ function BodegasPanel(
                   <td>{b.id_bodega}</td>
                   <td>{b.nombre}</td>
                   <td>{b.direccion ?? ''}</td>
-                  <td>
-                    <button type="button" onClick={() => onEliminar(b.id_bodega)}>
-                      Eliminar
-                    </button>
-                  </td>
+                  {esAdmin ? (
+                    <td>
+                      <button type="button" onClick={() => onEliminar(b.id_bodega)}>
+                        Eliminar
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -455,11 +590,12 @@ function BodegasPanel(
 function PuertosPanel(
   props: Readonly<{
     token: string
+    esAdmin: boolean
     setMensaje: (s: string) => void
     setCargando: (b: boolean) => void
   }>,
 ) {
-  const { token, setMensaje, setCargando } = props
+  const { token, esAdmin, setMensaje, setCargando } = props
 
   const [q, setQ] = useState<string>('')
   const [ciudad, setCiudad] = useState<string>('')
@@ -494,6 +630,10 @@ function PuertosPanel(
   const onCrear = (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     void (async () => {
+      if (!esAdmin) {
+        setMensaje('Se requiere rol admin')
+        return
+      }
       setMensaje('')
       setCargando(true)
       try {
@@ -510,6 +650,10 @@ function PuertosPanel(
 
   const onEliminar = (id: number) => {
     void (async () => {
+      if (!esAdmin) {
+        setMensaje('Se requiere rol admin')
+        return
+      }
       setMensaje('')
       setCargando(true)
       try {
@@ -527,17 +671,21 @@ function PuertosPanel(
     <div className="card" style={{ textAlign: 'left' }}>
       <h2>Puertos</h2>
 
-      <form onSubmit={onCrear} style={{ display: 'grid', gap: 8, maxWidth: 520, marginBottom: 12 }}>
-        <label>
-          <span>Nombre</span>
-          <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} />
-        </label>
-        <label>
-          <span>Ciudad</span>
-          <input value={nuevo.ciudad ?? ''} onChange={(e) => setNuevo({ ...nuevo, ciudad: e.target.value })} />
-        </label>
-        <button type="submit">Crear puerto</button>
-      </form>
+      {esAdmin ? (
+        <form onSubmit={onCrear} style={{ display: 'grid', gap: 8, maxWidth: 520, marginBottom: 12 }}>
+          <label>
+            <span>Nombre</span>
+            <input value={nuevo.nombre} onChange={(e) => setNuevo({ ...nuevo, nombre: e.target.value })} />
+          </label>
+          <label>
+            <span>Ciudad</span>
+            <input value={nuevo.ciudad ?? ''} onChange={(e) => setNuevo({ ...nuevo, ciudad: e.target.value })} />
+          </label>
+          <button type="submit">Crear puerto</button>
+        </form>
+      ) : (
+        <small>Solo admin puede crear/eliminar puertos.</small>
+      )}
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <label>
@@ -578,7 +726,7 @@ function PuertosPanel(
                 <th style={{ textAlign: 'left' }}>ID</th>
                 <th style={{ textAlign: 'left' }}>Nombre</th>
                 <th style={{ textAlign: 'left' }}>Ciudad</th>
-                <th style={{ textAlign: 'left' }}>Acciones</th>
+                {esAdmin ? <th style={{ textAlign: 'left' }}>Acciones</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -587,11 +735,13 @@ function PuertosPanel(
                   <td>{p.id_puerto}</td>
                   <td>{p.nombre}</td>
                   <td>{p.ciudad ?? ''}</td>
-                  <td>
-                    <button type="button" onClick={() => onEliminar(p.id_puerto)}>
-                      Eliminar
-                    </button>
-                  </td>
+                  {esAdmin ? (
+                    <td>
+                      <button type="button" onClick={() => onEliminar(p.id_puerto)}>
+                        Eliminar
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -605,11 +755,12 @@ function PuertosPanel(
 function ClientesPanel(
   props: Readonly<{
     token: string
+    esAdmin: boolean
     setMensaje: (s: string) => void
     setCargando: (b: boolean) => void
   }>,
 ) {
-  const { token, setMensaje, setCargando } = props
+  const { token, esAdmin, setMensaje, setCargando } = props
 
   const [q, setQ] = useState<string>('')
   const [page, setPage] = useState<number>(1)
@@ -658,6 +809,10 @@ function ClientesPanel(
 
   const onEliminar = (id: number) => {
     void (async () => {
+      if (!esAdmin) {
+        setMensaje('Se requiere rol admin')
+        return
+      }
       setMensaje('')
       setCargando(true)
       try {
@@ -721,7 +876,7 @@ function ClientesPanel(
                 <th style={{ textAlign: 'left' }}>Nombre</th>
                 <th style={{ textAlign: 'left' }}>Email</th>
                 <th style={{ textAlign: 'left' }}>Teléfono</th>
-                <th style={{ textAlign: 'left' }}>Acciones</th>
+                {esAdmin ? <th style={{ textAlign: 'left' }}>Acciones</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -731,11 +886,13 @@ function ClientesPanel(
                   <td>{c.nombre}</td>
                   <td>{c.email ?? ''}</td>
                   <td>{c.telefono ?? ''}</td>
-                  <td>
-                    <button type="button" onClick={() => onEliminar(c.id_cliente)}>
-                      Eliminar
-                    </button>
-                  </td>
+                  {esAdmin ? (
+                    <td>
+                      <button type="button" onClick={() => onEliminar(c.id_cliente)}>
+                        Eliminar
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
@@ -749,11 +906,12 @@ function ClientesPanel(
 function EnviosPanel(
   props: Readonly<{
     token: string
+    esAdmin: boolean
     setMensaje: (s: string) => void
     setCargando: (b: boolean) => void
   }>,
 ) {
-  const { token, setMensaje, setCargando } = props
+  const { token, esAdmin, setMensaje, setCargando } = props
 
   const [q, setQ] = useState<string>('')
   const [tipo, setTipo] = useState<TipoEnvio | ''>('')
@@ -881,6 +1039,10 @@ function EnviosPanel(
 
   const onEliminar = (id: number) => {
     void (async () => {
+      if (!esAdmin) {
+        setMensaje('Se requiere rol admin')
+        return
+      }
       setMensaje('')
       setCargando(true)
       try {
@@ -1019,7 +1181,7 @@ function EnviosPanel(
               <span>Placa vehículo</span>
               <input
                 value={nuevo.placa_vehiculo ?? ''}
-                onChange={(e) => setNuevo({ ...nuevo, placa_vehiculo: e.target.value })}
+                onChange={(e) => setNuevo({ ...nuevo, placa_vehiculo: e.target.value.toUpperCase() })}
               />
             </label>
           </div>
@@ -1040,7 +1202,7 @@ function EnviosPanel(
               <span>Número flota</span>
               <input
                 value={nuevo.numero_flota ?? ''}
-                onChange={(e) => setNuevo({ ...nuevo, numero_flota: e.target.value })}
+                onChange={(e) => setNuevo({ ...nuevo, numero_flota: e.target.value.toUpperCase() })}
               />
             </label>
           </div>
@@ -1107,7 +1269,7 @@ function EnviosPanel(
                 <th style={{ textAlign: 'left' }}>Descuento</th>
                 <th style={{ textAlign: 'left' }}>Precio final</th>
                 <th style={{ textAlign: 'left' }}>Detalle</th>
-                <th style={{ textAlign: 'left' }}>Acciones</th>
+                {esAdmin ? <th style={{ textAlign: 'left' }}>Acciones</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -1127,11 +1289,13 @@ function EnviosPanel(
                       ? `Bodega ${e.id_bodega ?? '-'} / ${e.placa_vehiculo ?? '-'}`
                       : `Puerto ${e.id_puerto ?? '-'} / ${e.numero_flota ?? '-'}`}
                   </td>
-                  <td>
-                    <button type="button" onClick={() => onEliminar(e.id_envio)}>
-                      Eliminar
-                    </button>
-                  </td>
+                  {esAdmin ? (
+                    <td>
+                      <button type="button" onClick={() => onEliminar(e.id_envio)}>
+                        Eliminar
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>

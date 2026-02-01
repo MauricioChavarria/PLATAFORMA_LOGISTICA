@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.autenticacion.dependencies import obtener_usuario_actual
+from app.autenticacion.dependencies import obtener_admin_actual, obtener_usuario_actual
 from app.bodegas.schemas import ActualizarBodegaDTO, BodegaDTO, CrearBodegaDTO, ListaBodegasDTO
 from app.bodegas.service import (
     actualizar_bodega,
@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.post("/bodegas", response_model=BodegaDTO)
-def crear(dto: CrearBodegaDTO, db: DBSession, _: dict = Depends(obtener_usuario_actual)) -> BodegaDTO:
+def crear(dto: CrearBodegaDTO, db: DBSession, _: dict = Depends(obtener_admin_actual)) -> BodegaDTO:
     obj = crear_bodega(db, dto)
     return BodegaDTO.model_validate(obj, from_attributes=True)
 
@@ -48,13 +48,13 @@ def actualizar(
     bodega_id: int,
     dto: ActualizarBodegaDTO,
     db: DBSession,
-    _: dict = Depends(obtener_usuario_actual),
+    _: dict = Depends(obtener_admin_actual),
 ) -> BodegaDTO:
     obj = actualizar_bodega(db, bodega_id, dto)
     return BodegaDTO.model_validate(obj, from_attributes=True)
 
 
 @router.delete("/bodegas/{bodega_id}")
-def eliminar(bodega_id: int, db: DBSession, _: dict = Depends(obtener_usuario_actual)) -> dict:
+def eliminar(bodega_id: int, db: DBSession, _: dict = Depends(obtener_admin_actual)) -> dict:
     eliminar_bodega(db, bodega_id)
     return {"status": "ok"}

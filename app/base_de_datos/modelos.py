@@ -5,6 +5,7 @@ Importar este módulo garantiza que todos los modelos queden registrados en
 """
 
 # Importaciones intencionales para registrar modelos
+from app.usuarios.models import Usuario  # noqa: F401
 from app.clientes.models import Cliente  # noqa: F401
 from app.tipos_producto.models import TipoProducto  # noqa: F401
 from app.bodegas.models import Bodega  # noqa: F401

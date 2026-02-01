@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.autenticacion.dependencies import obtener_usuario_actual
+from app.autenticacion.dependencies import obtener_admin_actual, obtener_usuario_actual
 from app.comun.dependencias import DBSession
 from app.productos.schemas import ActualizarProductoDTO, CrearProductoDTO, ListaProductosDTO, ProductoDTO
 from app.productos.service import (
@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.post("/productos", response_model=ProductoDTO)
-def crear(dto: CrearProductoDTO, db: DBSession, _: dict = Depends(obtener_usuario_actual)) -> ProductoDTO:
+def crear(dto: CrearProductoDTO, db: DBSession, _: dict = Depends(obtener_admin_actual)) -> ProductoDTO:
     obj = crear_producto(db, dto)
     return ProductoDTO.model_validate(obj, from_attributes=True)
 
@@ -48,13 +48,13 @@ def actualizar(
     producto_id: int,
     dto: ActualizarProductoDTO,
     db: DBSession,
-    _: dict = Depends(obtener_usuario_actual),
+    _: dict = Depends(obtener_admin_actual),
 ) -> ProductoDTO:
     obj = actualizar_producto(db, producto_id, dto)
     return ProductoDTO.model_validate(obj, from_attributes=True)
 
 
 @router.delete("/productos/{producto_id}")
-def eliminar(producto_id: int, db: DBSession, _: dict = Depends(obtener_usuario_actual)) -> dict:
+def eliminar(producto_id: int, db: DBSession, _: dict = Depends(obtener_admin_actual)) -> dict:
     eliminar_producto(db, producto_id)
     return {"status": "ok"}

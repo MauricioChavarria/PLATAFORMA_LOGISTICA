@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.autenticacion.dependencies import obtener_usuario_actual
+from app.autenticacion.dependencies import obtener_admin_actual, obtener_usuario_actual
 from app.clientes.schemas import ActualizarClienteDTO, ClienteDTO, CrearClienteDTO, ListaClientesDTO
 from app.clientes.service import (
     actualizar_cliente,
@@ -56,6 +56,6 @@ def actualizar(
 
 
 @router.delete("/clientes/{cliente_id}")
-def eliminar(cliente_id: int, db: DBSession, _: dict = Depends(obtener_usuario_actual)) -> dict:
+def eliminar(cliente_id: int, db: DBSession, _: dict = Depends(obtener_admin_actual)) -> dict:
     eliminar_cliente(db, cliente_id)
     return {"status": "ok"}

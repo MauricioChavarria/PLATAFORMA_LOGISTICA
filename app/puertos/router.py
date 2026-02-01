@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
-from app.autenticacion.dependencies import obtener_usuario_actual
+from app.autenticacion.dependencies import obtener_admin_actual, obtener_usuario_actual
 from app.comun.dependencias import DBSession
 from app.puertos.schemas import ActualizarPuertoDTO, CrearPuertoDTO, ListaPuertosDTO, PuertoDTO
 from app.puertos.service import (
@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.post("/puertos", response_model=PuertoDTO)
-def crear(dto: CrearPuertoDTO, db: DBSession, _: dict = Depends(obtener_usuario_actual)) -> PuertoDTO:
+def crear(dto: CrearPuertoDTO, db: DBSession, _: dict = Depends(obtener_admin_actual)) -> PuertoDTO:
     obj = crear_puerto(db, dto)
     return PuertoDTO.model_validate(obj, from_attributes=True)
 
@@ -49,13 +49,13 @@ def actualizar(
     puerto_id: int,
     dto: ActualizarPuertoDTO,
     db: DBSession,
-    _: dict = Depends(obtener_usuario_actual),
+    _: dict = Depends(obtener_admin_actual),
 ) -> PuertoDTO:
     obj = actualizar_puerto(db, puerto_id, dto)
     return PuertoDTO.model_validate(obj, from_attributes=True)
 
 
 @router.delete("/puertos/{puerto_id}")
-def eliminar(puerto_id: int, db: DBSession, _: dict = Depends(obtener_usuario_actual)) -> dict:
+def eliminar(puerto_id: int, db: DBSession, _: dict = Depends(obtener_admin_actual)) -> dict:
     eliminar_puerto(db, puerto_id)
     return {"status": "ok"}
