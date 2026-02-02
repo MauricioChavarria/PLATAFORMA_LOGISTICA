@@ -74,6 +74,7 @@ Documentación API (Swagger):
 - Diagrama E-R: `docs/DIAGRAMA_ER.md`
 - Script de base de datos (DDL): `scripts/schema.sql`
 - Justificación de tecnologías/patrones y buenas prácticas: `docs/ENTREGABLES.md`
+- Prueba técnica escrita (Arquitectura de Software): `docs/respuestas_Wild Security .docx`
 
 ## Git-Flow
 
