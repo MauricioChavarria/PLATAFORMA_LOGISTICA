@@ -28,7 +28,7 @@
 
 ## Cómo evidenciar cumplimiento
 
-- Diagrama E-R: ver `docs/DIAGRAMA_ER.md`.
+- Diagrama E-R: ver `docs/DIAGRAMA_ER.png`.
 - Script de base de datos: ver `scripts/schema.sql` (generado desde Alembic).
 - URL repositorio: remoto `origin` en GitHub.
 - Artefactos de despliegue: `docker-compose.yml` + instrucciones en README.
